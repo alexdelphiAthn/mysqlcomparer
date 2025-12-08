@@ -440,15 +440,25 @@ begin
   PosDefiner := Pos('DEFINER=', UpperSQL);
   if PosDefiner > 0 then
   begin
-    // Buscar el final del DEFINER (siguiente espacio antes de palabra clave)
-    PosEnd := PosEx('SQL', UpperSQL, PosDefiner);
-    if PosEnd = 0 then
-      PosEnd := PosEx('PROCEDURE', UpperSQL, PosDefiner);
+    // CORRECCIÓN: Buscar primero el tipo de objeto específico
+    // para evitar falsos positivos con palabras como "SQLEXCEPTION"
+    // 1. Intentar encontrar PROCEDURE
+    PosEnd := PosEx('PROCEDURE', UpperSQL, PosDefiner);
+    // 2. Si no, intentar encontrar TRIGGER
     if PosEnd = 0 then
       PosEnd := PosEx('TRIGGER', UpperSQL, PosDefiner);
+    // 3. Si no, intentar encontrar FUNCTION
+    if PosEnd = 0 then
+      PosEnd := PosEx('FUNCTION', UpperSQL, PosDefiner);
+    // 4. Si no, intentar encontrar SQL (común en Vistas: SQL SECURITY...)
+    if PosEnd = 0 then
+      PosEnd := PosEx('SQL', UpperSQL, PosDefiner);
+    // 5. Último recurso: buscar VIEW
+    if PosEnd = 0 then
+      PosEnd := PosEx('VIEW', UpperSQL, PosDefiner);
     if PosEnd > 0 then
       Result := Trim(Copy(Result, 1, PosDefiner - 1) +
-                    Copy(Result, PosEnd, Length(Result)));
+                     Copy(Result, PosEnd, Length(Result)));
   end;
 end;
 
