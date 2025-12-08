@@ -10,4 +10,4 @@ El uso es muy sencillo.
  He añadido una opción de añadir datos por diferecia para cuando hay datos iniciales o parámetros que son transmisibles.
  Para integrar en un programa de gestión es verdaderamente útil, pues los scripts de actualización pueden llegar a convertirse en una verdadera pesadilla. 
 
- Mi nombre es Alejandro Laorden alejandro.laorden@gmail.com y agradezco vuestros comentarios y aportes.
+ Mi nombre es Alejandro Laorden alejandro.laorden@proton.me y agradezco vuestros comentarios y aportes.
