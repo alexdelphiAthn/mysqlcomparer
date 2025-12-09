@@ -1,4 +1,4 @@
-program DBComparerConsole;
+﻿program DBComparerConsole;
 
 {$APPTYPE CONSOLE}
 uses
@@ -102,6 +102,7 @@ type
     function BuildInsertStatement(const TableName: string;
                                   const Fields, Values: TStringList): string;
     function EscapeSQL(const Value: string): string;
+    function BytesToHex(const Bytes: TBytes): string;
   public
     constructor Create(const Server1, User1, Pass1, Port1, DB1: string;
                        const Server2, User2, Pass2, Port2, DB2: string;
@@ -621,6 +622,8 @@ begin
 end;
 
 function TDBComparer.GenerateColumnDefinition(const Col: TColumnInfo): string;
+var
+  DefVal: string;
 begin
   Result := '`' + Col.ColumnName + '` ' + Col.DataType;
   if Col.IsNullable = 'NO' then
@@ -629,11 +632,27 @@ begin
     Result := Result + ' NULL';
   if (Col.ColumnDefault <> '') and (Col.ColumnDefault <> 'NULL') then
   begin
+    // Caso especial para funciones de fecha
     if (Pos('CURRENT_TIMESTAMP', UpperCase(Col.ColumnDefault)) > 0) or
        (Pos('NOW()', UpperCase(Col.ColumnDefault)) > 0) then
-      Result := Result + ' DEFAULT ' + Col.ColumnDefault
+    begin
+      Result := Result + ' DEFAULT ' + Col.ColumnDefault;
+    end
     else
-      Result := Result + ' DEFAULT ' + QuotedStr(Col.ColumnDefault);
+    begin
+      // CORRECCIÓN CRÍTICA:
+      // Algunos drivers/versiones de MySQL devuelven
+      // el default ya con comillas (ej: 'N').
+      // Si aplicamos QuotedStr sobre 'N', obtenemos '''N'''
+      //(3 caracteres), lo cual rompe varchar(1).
+      DefVal := Col.ColumnDefault;
+      // Si empieza y termina con comilla simple, se las quitamos antes de procesar
+      if ((Length(DefVal) >= 2) and
+          (DefVal[1] = '''') and
+          (DefVal[Length(DefVal)] = '''')) then
+        DefVal := Copy(DefVal, 2, Length(DefVal) - 2);
+      Result := Result + ' DEFAULT ' + QuotedStr(DefVal);
+    end;
   end
   else if Col.ColumnDefault = 'NULL' then
     Result := Result + ' DEFAULT NULL';
@@ -678,13 +697,19 @@ var
 begin
   Indexes1 := GetTableIndexes(Conn1, DB1, TableName);
   Indexes2 := GetTableIndexes(Conn2, DB2, TableName);
-  // Índices que existen en DB2 pero no en DB1 (eliminar solo si NO está --nodelete)
+
+  // 1. Índices que existen en DB2 pero no en DB1 (ELIMINAR)
   if not FOptions.NoDelete then
   begin
     for i := 0 to High(Indexes2) do
     begin
+      // Nota: Normalmente no eliminamos la PK
+      //aquí si vamos a recrearla después,
+      // pero por seguridad saltamos la PK aquí
+      //y dejamos que la lógica de modificación la maneje.
       if Indexes2[i].IsPrimary then
         Continue;
+
       Found := False;
       for j := 0 to High(Indexes1) do
       begin
@@ -696,30 +721,39 @@ begin
       end;
       if not Found then
       begin
-        FScript.Add('-- Eliminar índice: ' + TableName + '.'
-                                                         + Indexes2[i].IndexName);
-        FScript.Add('ALTER TABLE `' + TableName + '` DROP INDEX `'
-                                                  + Indexes2[i].IndexName + '`;');
+        FScript.Add('-- Eliminar índice: ' + TableName + '.' +
+                     Indexes2[i].IndexName);
+        FScript.Add('ALTER TABLE `' + TableName +
+                    '` DROP INDEX `' + Indexes2[i].IndexName + '`;');
         FScript.Add('');
       end;
     end;
   end;
-  // Índices nuevos o modificados
+  // 2. Índices nuevos o modificados (CREAR o RECREAR)
   for i := 0 to High(Indexes1) do
   begin
     Found := False;
     for j := 0 to High(Indexes2) do
     begin
+      // Comparamos por nombre (PRIMARY siempre se llama PRIMARY en MySQL)
       if Indexes1[i].IndexName = Indexes2[j].IndexName then
       begin
         Found := True;
+        // Si existen pero son diferentes
+        //(distintas columnas o tipo), hay que recrear
         if not IndexesAreEqual(Indexes1[i], Indexes2[j]) then
         begin
           FScript.Add('-- Modificar índice: ' + TableName + '.' +
-                                                           Indexes1[i].IndexName);
-          if not Indexes1[i].IsPrimary then
-            FScript.Add('ALTER TABLE `' + TableName + '` DROP INDEX `'
-                                                  + Indexes1[i].IndexName + '`;');
+                       Indexes1[i].IndexName);
+          // --- CORRECCIÓN AQUÍ ---
+          // Antes, el código evitaba borrar si era PRIMARY.
+          //Ahora lo gestionamos explícitamente.
+          if Indexes1[i].IsPrimary then
+            FScript.Add('ALTER TABLE `' + TableName + '` DROP PRIMARY KEY;')
+          else
+            FScript.Add('ALTER TABLE `' + TableName +
+                        '` DROP INDEX `' + Indexes1[i].IndexName + '`;');
+          // -----------------------
           FScript.Add(GenerateIndexDefinition(TableName, Indexes1[i]) + ';');
           FScript.Add('');
         end;
@@ -728,8 +762,7 @@ begin
     end;
     if not Found then
     begin
-      FScript.Add('-- Agregar índice: ' + TableName + '.' +
-                                                           Indexes1[i].IndexName);
+      FScript.Add('-- Agregar índice: ' + TableName + '.' + Indexes1[i].IndexName);
       FScript.Add(GenerateIndexDefinition(TableName, Indexes1[i]) + ';');
       FScript.Add('');
     end;
@@ -863,6 +896,15 @@ begin
   end;
 end;
 
+function TDBComparer.BytesToHex(const Bytes: TBytes): string;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := Low(Bytes) to High(Bytes) do
+    Result := Result + IntToHex(Bytes[i], 2);
+end;
+
 function TDBComparer.BuildUpdateStatement(const TableName: string;
                                           const PKColumns: TStringList;
                                           Query: TUniQuery): string;
@@ -994,7 +1036,7 @@ begin
             case Query1.FieldByName(FieldName).DataType of
               ftString, ftWideString:
                 Values.Add(QuotedStr(Query1.FieldByName(FieldName).AsString));
-                ftMemo, ftWideMemo, ftFmtMemo, ftBlob:
+                ftMemo, ftWideMemo, ftFmtMemo:
                 // Para campos grandes, usar escape manual
                 Values.Add(EscapeSQL(Query1.FieldByName(FieldName).AsString));
               ftDate, ftTime, ftDateTime, ftTimeStamp:
@@ -1003,6 +1045,11 @@ begin
               ftBoolean:
                 Values.Add(IntToStr(Ord(
                                      Query1.FieldByName(FieldName).AsBoolean)));
+              ftBlob, ftGraphic, ftVarBytes, ftBytes:
+                begin
+                  // MySQL acepta hexadecimales como 0xAABBCC...
+                  Values.Add('0x' + BytesToHex(Query1.Fields[i].AsBytes));
+                end;
             else
               Values.Add(Query1.FieldByName(FieldName).AsString);
             end;
@@ -1187,6 +1234,11 @@ begin
                                                   Query.Fields[i].AsDateTime) + '''');
               ftBoolean:
                 Values.Add(IntToStr(Ord(Query.Fields[i].AsBoolean)));
+              ftBlob, ftGraphic, ftVarBytes, ftBytes:
+                begin
+                  // MySQL acepta hexadecimales como 0xAABBCC...
+                  Values.Add('0x' + BytesToHex(Query.Fields[i].AsBytes));
+                end;
             else
               Values.Add(Query.Fields[i].AsString);
             end;
@@ -1631,6 +1683,7 @@ var
   Options: TCompareOptions;
 begin
   try
+    FormatSettings.DecimalSeparator := '.';
     if ParamCount < 4 then
       ShowUsage;
     // Parsear parámetros
