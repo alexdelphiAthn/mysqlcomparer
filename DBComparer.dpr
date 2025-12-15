@@ -50,6 +50,7 @@ type
     WithData: Boolean;
     WithDataDiff: Boolean;
     ExcludeTables: TStringList;
+    IncludeTables: TStringList;
   end;
 
   TDBComparer = class
@@ -129,8 +130,16 @@ constructor TDBComparer.Create(const Server1, User1, Pass1, Port1, DB1: string;
 begin
   FScript := TStringList.Create;
   FOptions := Options;
+  if Options.IncludeTables <> nil then
+  begin
+    FOptions.IncludeTables := TStringList.Create;
+    FOptions.IncludeTables.Assign(Options.IncludeTables);
+    FOptions.IncludeTables.CaseSensitive := False; // Importante para SQL
+  end
+  else
+    FOptions.IncludeTables := nil;
   // NUEVA: Crear una copia de la lista de exclusión si existe
-  if Options.ExcludeTables <> nil then
+  if (Options.ExcludeTables <> nil) then
   begin
     FOptions.ExcludeTables := TStringList.Create;
     FOptions.ExcludeTables.Assign(Options.ExcludeTables);
@@ -164,8 +173,10 @@ begin
   FConn1.Free;
   FConn2.Free;
   FScript.Free;
-  if FOptions.ExcludeTables <> nil then
-    FOptions.ExcludeTables.Free;  // NUEVA
+  if (FOptions.ExcludeTables <> nil) then
+    FOptions.ExcludeTables.Free;
+  if (FOptions.IncludeTables <> nil) then
+    FOptions.IncludeTables.Free;
   inherited;
 end;
 
@@ -179,20 +190,18 @@ begin
   FieldList := '';
   for i := 0 to Fields.Count - 1 do
   begin
-    if i > 0 then
+    if (i > 0) then
       FieldList := FieldList + ', ';
     FieldList := FieldList + Fields[i];  // Ya tienen los backticks
   end;
-
   // Construir lista de valores
   ValueList := '';
   for i := 0 to Values.Count - 1 do
   begin
-    if i > 0 then
+    if (i > 0) then
       ValueList := ValueList + ', ';
     ValueList := ValueList + Values[i];  // Ya tienen las comillas necesarias
   end;
-
   Result := 'INSERT INTO `' + TableName + '` (' + FieldList +
             ') VALUES (' + ValueList + ')';
 end;
@@ -211,7 +220,7 @@ begin
                       '  AND TABLE_TYPE = ''BASE TABLE'' ' +
                       'ORDER BY TABLE_NAME';
     Query.Open;
-    while not Query.Eof do
+    while (not(Query.Eof)) do
     begin
       Result.Add(Query.FieldByName('TABLE_NAME').AsString);
       Query.Next;
@@ -306,9 +315,10 @@ begin
       LastIndexName := '';
       while not Query.Eof do
       begin
-        if Query.FieldByName('INDEX_NAME').AsString <> LastIndexName then
+        if not SameText(Query.FieldByName('INDEX_NAME').AsString,
+                        LastIndexName) then
         begin
-          if LastIndexName <> '' then
+          if not SameText(LastIndexName, '') then
           begin
             CurrentIndex.Columns := ColList.ToArray;
             IndexList.Add(CurrentIndex);
@@ -316,7 +326,7 @@ begin
           end;
           LastIndexName := Query.FieldByName('INDEX_NAME').AsString;
           CurrentIndex.IndexName := LastIndexName;
-          CurrentIndex.IsPrimary := (LastIndexName = 'PRIMARY');
+          CurrentIndex.IsPrimary := SameText(LastIndexName, 'PRIMARY');
           CurrentIndex.IsUnique :=
                                 (Query.FieldByName('NON_UNIQUE').AsInteger = 0);
         end;
@@ -325,7 +335,7 @@ begin
         ColList.Add(IndexCol);
         Query.Next;
       end;
-      if LastIndexName <> '' then
+      if not SameText(LastIndexName, '') then
       begin
         CurrentIndex.Columns := ColList.ToArray;
         IndexList.Add(CurrentIndex);
@@ -444,17 +454,17 @@ begin
     PosEnd := 0;
     // 1. Buscar PROCEDURE (Prioridad alta para evitar error
     //    con SQLEXCEPTION en el cuerpo)
-    if PosEnd = 0 then PosEnd := PosEx('PROCEDURE', UpperSQL, PosDefiner);
+    if (PosEnd = 0) then PosEnd := PosEx('PROCEDURE', UpperSQL, PosDefiner);
     // 2. Buscar TRIGGER
-    if PosEnd = 0 then PosEnd := PosEx('TRIGGER', UpperSQL, PosDefiner);
+    if (PosEnd = 0) then PosEnd := PosEx('TRIGGER', UpperSQL, PosDefiner);
     // 3. Buscar FUNCTION
-    if PosEnd = 0 then PosEnd := PosEx('FUNCTION', UpperSQL, PosDefiner);
+    if (PosEnd = 0) then PosEnd := PosEx('FUNCTION', UpperSQL, PosDefiner);
     // 4. Buscar VIEW (Esto limpiará también el
     //    'SQL SECURITY' si está antes del VIEW)
-    if PosEnd = 0 then PosEnd := PosEx('VIEW', UpperSQL, PosDefiner);
+    if (PosEnd = 0) then PosEnd := PosEx('VIEW', UpperSQL, PosDefiner);
     // NOTA: Hemos eliminado la búsqueda genérica de 'SQL' porque causaba
     // falsos positivos con variables o handlers como 'SQLEXCEPTION'.
-    if PosEnd > 0 then
+    if (PosEnd > 0) then
     begin
       // Cortamos desde el inicio del DEFINER hasta justo antes del
       // tipo de objeto Y Agregamos un espacio por seguridad para evitar
@@ -595,7 +605,7 @@ function TDBComparer.IndexesAreEqual(const Idx1, Idx2: TIndexInfo): Boolean;
 var
   i: Integer;
 begin
-  Result := (Idx1.IndexName = Idx2.IndexName) and
+  Result := SameText(Idx1.IndexName, Idx2.IndexName) and
             (Idx1.IsUnique = Idx2.IsUnique) and
             (Idx1.IsPrimary = Idx2.IsPrimary) and
             (Length(Idx1.Columns) = Length(Idx2.Columns));
@@ -603,8 +613,8 @@ begin
   begin
     for i := 0 to High(Idx1.Columns) do
     begin
-      if (Idx1.Columns[i].ColumnName <> Idx2.Columns[i].ColumnName) or
-         (Idx1.Columns[i].SeqInIndex <> Idx2.Columns[i].SeqInIndex) then
+      if not(SameText(Idx1.Columns[i].ColumnName, Idx2.Columns[i].ColumnName))
+         or (Idx1.Columns[i].SeqInIndex <> Idx2.Columns[i].SeqInIndex) then
       begin
         Result := False;
         Break;
@@ -615,7 +625,7 @@ end;
 
 function TDBComparer.TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean;
 begin
-  Result := (Trg1.TriggerName = Trg2.TriggerName) and
+  Result := SameText(Trg1.TriggerName, Trg2.TriggerName) and
             (Trg1.EventManipulation = Trg2.EventManipulation) and
             (Trg1.ActionTiming = Trg2.ActionTiming) and
             (Trim(Trg1.ActionStatement) = Trim(Trg2.ActionStatement));
@@ -626,11 +636,12 @@ var
   DefVal: string;
 begin
   Result := '`' + Col.ColumnName + '` ' + Col.DataType;
-  if Col.IsNullable = 'NO' then
+  if SameText(Col.IsNullable, 'NO') then
     Result := Result + ' NOT NULL'
   else
     Result := Result + ' NULL';
-  if (Col.ColumnDefault <> '') and (Col.ColumnDefault <> 'NULL') then
+  if ((not SameText(Col.ColumnDefault, '')) and
+      (not SameText(Col.ColumnDefault, 'NULL'))) then
   begin
     // Caso especial para funciones de fecha
     if (Pos('CURRENT_TIMESTAMP', UpperCase(Col.ColumnDefault)) > 0) or
@@ -660,7 +671,7 @@ begin
     Result := Result + ' AUTO_INCREMENT';
   if Pos('on update', LowerCase(Col.Extra)) > 0 then
     Result := Result + ' ON UPDATE CURRENT_TIMESTAMP';
-  if Col.ColumnComment <> '' then
+  if not SameText(Col.ColumnComment, '') then
     Result := Result + ' COMMENT ' + QuotedStr(Col.ColumnComment);
 end;
 
@@ -697,7 +708,6 @@ var
 begin
   Indexes1 := GetTableIndexes(Conn1, DB1, TableName);
   Indexes2 := GetTableIndexes(Conn2, DB2, TableName);
-
   // 1. Índices que existen en DB2 pero no en DB1 (ELIMINAR)
   if not FOptions.NoDelete then
   begin
@@ -709,7 +719,6 @@ begin
       //y dejamos que la lógica de modificación la maneje.
       if Indexes2[i].IsPrimary then
         Continue;
-
       Found := False;
       for j := 0 to High(Indexes1) do
       begin
@@ -919,7 +928,7 @@ begin
     FieldName := Query.Fields[i].FieldName;
     if PKColumns.IndexOf(FieldName) >= 0 then
       Continue;
-    if SetClause <> '' then
+    if not SameText(SetClause, '') then
       SetClause := SetClause + ', ';
     if Query.Fields[i].IsNull then
       SetClause := SetClause + '`' + FieldName + '` = NULL'
@@ -996,10 +1005,10 @@ begin
     begin
       FieldName := Query1.Fields[i].FieldName;
       // Solo agregar si existe en ambas tablas
-      if Query2.FindField(FieldName) <> nil then
+      if (Query2.FindField(FieldName) <> nil) then
         CommonFields.Add(FieldName);
     end;
-    if CommonFields.Count = 0 then
+    if (CommonFields.Count = 0) then
     begin
       FScript.Add('-- ADVERTENCIA: No hay campos comunes entre ambas tablas.');
       FScript.Add('');
@@ -1080,7 +1089,7 @@ begin
           end;
           if not Query1.FieldByName(FieldName).IsNull then
           begin
-            if (Query1.FieldByName(FieldName).AsString <>
+            if not SameText(Query1.FieldByName(FieldName).AsString,
                                     Query2.FieldByName(FieldName).AsString) then
             begin
               RecordsDiffer := True;
@@ -1164,7 +1173,7 @@ begin
     // Saltar campos de clave primaria
     if PKColumns.IndexOf(FieldName) >= 0 then
       Continue;
-    if SetClause <> '' then
+    if not SameText(SetClause, '') then
       SetClause := SetClause + ', ';
     if Query.FieldByName(FieldName).IsNull then
       SetClause := SetClause + '`' + FieldName + '` = NULL'
@@ -1283,7 +1292,6 @@ begin
     FScript.Add('-- COMPARACIÓN DE TABLAS');
     FScript.Add('-- ========================================');
     FScript.Add('');
-
     // 1. Tablas eliminadas (solo si NO está --nodelete)
     if not FOptions.NoDelete then
     begin
@@ -1297,7 +1305,6 @@ begin
         end;
       end;
     end;
-
     // 2. Iterar tablas de origen
     for i := 0 to Tables1.Count - 1 do
     begin
@@ -1311,16 +1318,13 @@ begin
         PKList := TStringList.Create;
         try
           FScript.Add('CREATE TABLE `' + Tables1[i] + '` (');
-
           // Generar definiciones de columnas
           for j := 0 to Table1.Columns.Count - 1 do
           begin
             Col1 := Table1.Columns[j];
-
             // Detectar si es parte de la Primary Key
             if Col1.ColumnKey = 'PRI' then
               PKList.Add('`' + Col1.ColumnName + '`');
-
             // Escribir definición de columna
             // Nota: Si no es la última columna, ponemos coma.
             // PERO, si es la última columna y HAY Primary Key pendiente, también necesitamos coma.
@@ -1335,16 +1339,13 @@ begin
                 FScript.Add('  ' + GenerateColumnDefinition(Col1));
             end;
           end;
-
           // Definir PRIMARY KEY inline (Obligatorio para AUTO_INCREMENT)
           if PKList.Count > 0 then
           begin
             FScript.Add('  PRIMARY KEY (' + PKList.CommaText + ')');
           end;
-
           FScript.Add(');');
           FScript.Add('');
-
           // Agregar Índices Secundarios (NO Primary, esos ya están)
           Indexes := GetTableIndexes(FConn1, DB1, Tables1[i]);
           for Idx in Indexes do
@@ -1356,7 +1357,6 @@ begin
               FScript.Add('');
             end;
           end;
-
         finally
           Table1.Free;
           PKList.Free;
@@ -1400,7 +1400,6 @@ begin
               FScript.Add('');
             end;
           end;
-
           // B.2 Columnas eliminadas (solo si NO está --nodelete)
           if not FOptions.NoDelete then
           begin
@@ -1429,19 +1428,36 @@ begin
           Table1.Free;
           Table2.Free;
         end;
-
         // B.3 Comparar índices (Solo para tablas existentes)
         CompareIndexes(FConn1, FConn2, DB1, DB2, Tables1[i]);
       end;
-
+     // ============================================================
+      // 3. SINCRONIZACIÓN DE DATOS
       // ============================================================
-      // 3. SINCRONIZACIÓN DE DATOS (Común para nueva y existente)
-      // ============================================================
-      if FOptions.WithData then
-        CopyData(DB1, DB2, Tables1[i])
-      else if FOptions.WithDataDiff then
-        CompareAndSyncData(DB1, DB2, Tables1[i]);
-
+      // LOGICA DE FILTRADO:
+      // 1. Si hay lista de INCLUSIÓN, la tabla DEBE estar en ella.
+      // 2. Si NO hay lista de inclusión, verificamos la de EXCLUSIÓN.
+      if ((FOptions.WithData or FOptions.WithDataDiff)) then
+      begin
+        // Caso A: El usuario definió --include-tables
+        if ((FOptions.IncludeTables <> nil) and
+            (FOptions.IncludeTables.Count > 0)) then
+        begin
+          if FOptions.IncludeTables.IndexOf(Tables1[i]) = -1 then
+            Continue; // Saltar si la tabla no está en la lista blanca
+        end
+        // Caso B: No hay whitelist, miramos si está excluida
+        else if ((FOptions.ExcludeTables <> nil) and
+                 (FOptions.ExcludeTables.IndexOf(Tables1[i]) >= 0)) then
+        begin
+            Continue; // Saltar si la tabla está en la lista negra
+        end;
+        // Si pasa los filtros, procesar datos
+        if FOptions.WithData then
+          CopyData(DB1, DB2, Tables1[i])
+        else if FOptions.WithDataDiff then
+          CompareAndSyncData(DB1, DB2, Tables1[i]);
+      end;
     end; // Fin bucle principal de tablas
   finally
     Tables1.Free;
@@ -1570,8 +1586,11 @@ begin
   Writeln('  --with-data          Copia todos los datos de origen a destino (INSERT)');
   Writeln('  --with-data-diff     Sincroniza datos comparando por clave primaria');
   Writeln('                       (INSERT nuevos, UPDATE modificados, DELETE si no --nodelete)');
-  Writeln('  --exclude-tables=T1,T2,T3  Excluye tablas de la sincronización de datos');
-  Writeln('                             (solo afecta a --with-data y --with-data-diff)');
+  Writeln('  --exclude-tables=T1,T2...  Excluye tablas específicas de la sincronización de datos');
+  Writeln('                             (Lista Negra: Sincroniza todo MENOS esto)');
+  // --- NUEVA OPCIÓN ---
+  Writeln('  --include-tables=T1,T2...  Solo sincroniza datos de estas tablas');
+  Writeln('                             (Lista Blanca: Solo sincroniza ESTO, ignora el resto)');
   Writeln('');
   Writeln('Ejemplos:');
   Writeln('  DBComparer localhost:3306\midb_prod root\pass123 '+
@@ -1580,8 +1599,8 @@ begin
   Writeln('  DBComparer localhost:3306\prod root\pass '+
           'localhost:3306\dev root\pass --with-data-diff --nodelete');
   Writeln('');
-  Writeln('  DBComparer localhost:3306\prod root\pass '+
-          'localhost:3306\dev root\pass --with-data-diff --exclude-tables=logs,audit,temp');
+  // --- NUEVO EJEMPLO ---
+  Writeln('  DBComparer ... --with-data-diff --include-tables=fza_paises,fza_monedas');
   Writeln('');
   Writeln('El resultado se imprime por la salida estándar. '+
           'Para guardarlo en archivo:');
@@ -1619,7 +1638,7 @@ var
   Parts: TArray<string>;
 begin
   Parts := CredStr.Split(['\']);
-  if Length(Parts) <> 2 then
+  if (Length(Parts) <> 2) then
     raise Exception.Create('Formato incorrecto. Use: usuario\password');
   User := Parts[0];
   Password := Parts[1];
@@ -1631,12 +1650,15 @@ var
   Param: string;
   ExcludePos: Integer;
   ExcludeList: string;
+  IncludePos: Integer;
+  IncludeList: string;
 begin
   Result.NoDelete := False;
   Result.WithTriggers := False;
   Result.WithData := False;
   Result.WithDataDiff := False;
   Result.ExcludeTables := nil;
+  Result.IncludeTables := nil;
   for i := 5 to ParamCount do
   begin
     Param := ParamStr(i);
@@ -1650,6 +1672,17 @@ begin
         Result.ExcludeTables := TStringList.Create;
         Result.ExcludeTables.CommaText := ExcludeList;
         Result.ExcludeTables.CaseSensitive := False;
+      end;
+    end
+    else if StartsText('--include-tables=', Param) then
+    begin
+      IncludePos := Pos('=', Param);
+      if IncludePos > 0 then
+      begin
+        IncludeList := Copy(Param, IncludePos + 1, Length(Param));
+        Result.IncludeTables := TStringList.Create;
+        Result.IncludeTables.CommaText := IncludeList;
+        Result.IncludeTables.CaseSensitive := False;
       end;
     end
     else
@@ -1669,7 +1702,7 @@ begin
   if Result.WithData and Result.WithDataDiff then
   begin
     Writeln(ErrOutput, 'ERROR: No puede usar --with-data y --with-data-diff simultáneamente');
-    if Result.ExcludeTables <> nil then
+    if (Result.ExcludeTables <> nil) then
       Result.ExcludeTables.Free;
     Halt(1);
   end;
@@ -1703,7 +1736,8 @@ begin
       Writeln(ErrOutput, 'Incluye: DATOS (copia completa)');
     if Options.WithDataDiff then
       Writeln(ErrOutput, 'Incluye: DATOS (sincronización por PK)');
-    if (Options.ExcludeTables <> nil) and (Options.ExcludeTables.Count > 0) then
+    if ((Options.ExcludeTables <> nil) and
+        (Options.ExcludeTables.Count > 0)) then
       Writeln(ErrOutput, 'Tablas excluidas de datos: ' +
                                                Options.ExcludeTables.CommaText);
     Writeln(ErrOutput, '');
