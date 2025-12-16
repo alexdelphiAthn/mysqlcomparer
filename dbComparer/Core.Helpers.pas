@@ -25,6 +25,7 @@ type
     function GenerateModifyColumnSQL(const TableName:string;
                                      const ColumnInfo:TColumnInfo): string; virtual;abstract;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string; virtual;abstract;
+    function GenerateDropTableSQL(const TableName:String): string; virtual; abstract;
   end;
 implementation
 

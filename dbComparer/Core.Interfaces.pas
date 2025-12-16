@@ -44,6 +44,7 @@ type
     function GenerateDropColumnSQL(const TableName, ColumnName:string): string;
     function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string;
+    function GenerateDropTableSQL(const TableName:String): string;
     // Normalización (específico de cada motor)
     function NormalizeType(const AType: string): string;
     function NormalizeExtra(const AExtra: string): string;

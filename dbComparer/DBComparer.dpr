@@ -8,7 +8,8 @@ uses
   Core.Types in 'Core.Types.pas',
   Providers.MySQL in 'Providers.MySQL.pas',
   ScriptWriters in 'ScriptWriters.pas',
-  Providers.MySQL.Helpers in 'Providers.MySQL.Helpers.pas', System.SysUtils;
+  Providers.MySQL.Helpers in 'Providers.MySQL.Helpers.pas',
+  System.SysUtils;
 
 procedure ShowUsage;
 begin
@@ -52,6 +53,7 @@ var
   Writer: IScriptWriter;
   Engine: TDBComparerEngine;
   Options:TComparerOptions;
+  SourceHelpers: IDBHelpers;
 begin
   try
     if ParamCount < 4 then
@@ -85,10 +87,12 @@ begin
                                                       TargetConfig.Database);
       // 3. Crear escritor
       Writer := TStringListScriptWriter.Create;
+      SourceHelpers := TMySQLHelpers.Create;
       // 4. Crear e iniciar el motor
       Engine := TDBComparerEngine.Create(SourceProvider,
                                        TargetProvider,
                                        Writer,
+                                       SourceHelpers,
                                        Options);
       try
         Engine.GenerateScript;

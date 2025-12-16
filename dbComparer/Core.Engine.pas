@@ -3,7 +3,7 @@
 interface
 
 uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers,
-     Generics.Collections;
+     Generics.Collections, Providers.MySQL.Helpers;
 
 type
   TDBComparerEngine = class
@@ -14,10 +14,14 @@ type
     FOptions: TComparerOptions;
     FHelpers: IDBHelpers;
     procedure CompareTableStructure(const TableName: string);
+    procedure CompareTableIndexes(const TableName: string);
     procedure CompareTables;
+    procedure CreateNewTable(const TableName: string);
   public
     constructor Create(Source, Target: IDBMetadataProvider;
-                       Writer: IScriptWriter; Options: TComparerOptions);
+                       Writer: IScriptWriter;
+                       Helpers: IDBHelpers;
+                       Options: TComparerOptions);
     procedure GenerateScript;
   end;
 
@@ -28,12 +32,62 @@ uses
 
 constructor TDBComparerEngine.Create(Source, Target: IDBMetadataProvider;
                                      Writer: IScriptWriter;
+                                     Helpers: IDBHelpers;
                                      Options: TComparerOptions);
 begin
   FSourceDB := Source;
   FTargetDB := Target;
   FWriter := Writer;
   FOptions := Options;
+  FHelpers := Helpers;
+end;
+
+procedure TDBComparerEngine.CreateNewTable(const TableName: string);
+var
+  Table: TTableInfo;
+  Indexes: TArray<TIndexInfo>;
+  i: Integer;
+  Idx: TIndexInfo;
+  PKList: TStringList;
+  ColDef: string;
+begin
+  FWriter.AddComment('Tabla nueva: ' + TableName);
+  Table := FSourceDB.GetTableStructure(TableName);
+  PKList := TStringList.Create;
+  try
+    // Generar CREATE TABLE
+    FWriter.AddCommand('CREATE TABLE `' + TableName + '` (');
+    // Definiciones de columnas
+    for i := 0 to Table.Columns.Count - 1 do
+    begin
+      // Detectar si es PK
+      if SameText(Table.Columns[i].ColumnKey, 'PRI') then
+        PKList.Add('`' + Table.Columns[i].ColumnName + '`');
+      ColDef := '  ' + FHelpers.GenerateColumnDefinition(Table.Columns[i]);
+      // Agregar coma si no es la última columna O si hay PK pendiente
+      if (i < Table.Columns.Count - 1) or (PKList.Count > 0) then
+        ColDef := ColDef + ',';
+      FWriter.AddCommand(ColDef);
+    end;
+    // Agregar PRIMARY KEY inline si existe
+    if PKList.Count > 0 then
+      FWriter.AddCommand('  PRIMARY KEY (' + PKList.CommaText + ')');
+    FWriter.AddCommand(')');
+    FWriter.AddCommand('');
+    // Agregar índices secundarios (no PRIMARY)
+    Indexes := FSourceDB.GetTableIndexes(TableName);
+    for Idx in Indexes do
+    begin
+      if not Idx.IsPrimary then
+      begin
+        FWriter.AddComment('Agregar índice: ' + TableName + '.' + Idx.IndexName);
+        FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName, Idx));
+      end;
+    end;
+  finally
+    Table.Free;
+    PKList.Free;
+  end;
 end;
 
 procedure TDBComparerEngine.GenerateScript;
@@ -51,8 +105,43 @@ begin
 end;
 
 procedure TDBComparerEngine.CompareTables;
+var
+  SourceTables, TargetTables: TStringList;
+  i: Integer;
 begin
-//
+  SourceTables := FSourceDB.GetTables;
+  TargetTables := FTargetDB.GetTables;
+  try
+    // 1. Tablas eliminadas (si no está --nodelete)
+    if not FOptions.NoDelete then
+    begin
+      for i := 0 to TargetTables.Count - 1 do
+      begin
+        if SourceTables.IndexOf(TargetTables[i]) = -1 then
+        begin
+          FWriter.AddComment('Tabla eliminada: ' + TargetTables[i]);
+          FWriter.AddCommand(FHelpers.GenerateDropTableSQL(TargetTables[i]));
+        end;
+      end;
+    end;
+    // 2. Tablas nuevas o modificadas
+    for i := 0 to SourceTables.Count - 1 do
+    begin
+      if TargetTables.IndexOf(SourceTables[i]) = -1 then
+      begin
+        // Tabla nueva - Crear completa
+        CreateNewTable(SourceTables[i]);
+      end
+      else
+      begin
+        // Tabla existente - Comparar estructura
+        CompareTableStructure(SourceTables[i]);
+      end;
+    end;
+  finally
+    SourceTables.Free;
+    TargetTables.Free;
+  end;
 end;
 
 procedure TDBComparerEngine.CompareTableStructure(const TableName: string);
@@ -87,7 +176,6 @@ begin
         // CASO A: La columna no existe en Destino -> CREAR
         FWriter.AddComment('Agregar columna: ' + TableName + '.' +
                            Col1.ColumnName);
-
         // El Helper se encarga del dialecto SQL (ADD COLUMN vs ADD ...)
         FWriter.AddCommand(FHelpers.GenerateAddColumnSQL(TableName, Col1));
       end
@@ -127,10 +215,88 @@ begin
     // ---------------------------------------------------------
     // 3. Comparar Índices (Llamada separada)
     // ---------------------------------------------------------
-    //CompareTableIndexes(TableName);
+    CompareTableIndexes(TableName);
   finally
     Table1.Free;
     Table2.Free;
+  end;
+end;
+
+procedure TDBComparerEngine.CompareTableIndexes(const TableName: string);
+var
+  SourceIndexes, TargetIndexes: TArray<TIndexInfo>;
+  Found: Boolean;
+begin
+  SourceIndexes := FSourceDB.GetTableIndexes(TableName);
+  TargetIndexes := FTargetDB.GetTableIndexes(TableName);
+
+  // 1. Eliminar índices que ya no existen
+  if not FOptions.NoDelete then
+  begin
+    for var i := 0 to High(TargetIndexes) do
+    begin
+      // No borrar PRIMARY KEY aquí (se maneja diferente)
+      if TargetIndexes[i].IsPrimary then
+        Continue;
+
+      Found := False;
+      for var j := 0 to High(SourceIndexes) do
+      begin
+        if SameText(SourceIndexes[j].IndexName, TargetIndexes[i].IndexName) then
+        begin
+          Found := True;
+          Break;
+        end;
+      end;
+
+      if not Found then
+      begin
+        FWriter.AddComment('Eliminar índice: ' + TableName + '.' +
+                          TargetIndexes[i].IndexName);
+        FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
+                                                         TargetIndexes[i].IndexName));
+      end;
+    end;
+  end;
+
+  // 2. Crear o modificar índices
+  for var i := 0 to High(SourceIndexes) do
+  begin
+    Found := False;
+    for var j := 0 to High(TargetIndexes) do
+    begin
+      if SameText(SourceIndexes[i].IndexName, TargetIndexes[j].IndexName) then
+      begin
+        Found := True;
+
+        // Si son diferentes, recrear
+        if not FHelpers.IndexesAreEqual(SourceIndexes[i], TargetIndexes[j]) then
+        begin
+          FWriter.AddComment('Modificar índice: ' + TableName + '.' +
+                            SourceIndexes[i].IndexName);
+
+          // Para PRIMARY KEY usar sintaxis especial
+          if SourceIndexes[i].IsPrimary then
+            FWriter.AddCommand('ALTER TABLE `' + TableName + '` DROP PRIMARY KEY')
+          else
+            FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
+                                                             SourceIndexes[i].IndexName));
+
+          FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName,
+                                                              SourceIndexes[i]));
+        end;
+        Break;
+      end;
+    end;
+
+    // Índice nuevo
+    if not Found then
+    begin
+      FWriter.AddComment('Agregar índice: ' + TableName + '.' +
+                        SourceIndexes[i].IndexName);
+      FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName,
+                                                          SourceIndexes[i]));
+    end;
   end;
 end;
 

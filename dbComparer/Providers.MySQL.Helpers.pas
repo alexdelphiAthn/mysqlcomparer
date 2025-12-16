@@ -19,8 +19,11 @@ type
     class function GenerateDropColumnSQL(const TableName, ColumnName:string): string;
     class function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
     class function GenerateDropIndexSQL(const TableName, IndexName:string): string;
+    class function GenerateDropTableSQL(const TableName:String): string;
   end;
+
 implementation
+
 class function TMySQLHelpers.TriggersAreEqual(const Trg1,
                                                    Trg2: TTriggerInfo): Boolean;
 begin
@@ -34,6 +37,7 @@ class function TMySQLHelpers.QuoteIdentifier(const Identifier: string): string;
 begin
   Result := '`' + Identifier + '`';
 end;
+
 class function TMySQLHelpers.NormalizeType(const AType: string): string;
 var
   S: string;
@@ -50,6 +54,7 @@ begin
   end;
   Result := StringReplace(S, ' ', '', [rfReplaceAll]);
 end;
+
 class function TMySQLHelpers.GenerateAddColumnSQL(const TableName: string;
   const ColumnInfo: TColumnInfo): string;
 begin
@@ -108,14 +113,11 @@ begin
     begin
       // Usar tu método existente
       ColDef := '  ' + GenerateColumnDefinition(Table.Columns[i]);
-
       // Detectar PK para añadirla al final
       if SameText(Table.Columns[i].ColumnKey, 'PRI') then
         PKList.Add(QuoteIdentifier(Table.Columns[i].ColumnName));
-
       if i < Table.Columns.Count - 1 then
         ColDef := ColDef + ',';
-
       Result := Result + ColDef + sLineBreak;
     end;
     // Agregar PK inline
@@ -134,10 +136,19 @@ begin
             ' DROP COLUMN ' + QuoteIdentifier(ColumnName);
 end;
 
+class function TMySQLHelpers.GenerateDropTableSQL(const TableName:String): string;
+begin
+  Result := 'DROP TABLE IF EXISTS ' + QuoteIdentifier(TableName);
+end;
+
 class function TMySQLHelpers.GenerateDropIndexSQL(const TableName,
   IndexName: string): string;
 begin
-  //
+  if SameText(IndexName, 'PRIMARY') then
+    Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) + ' DROP PRIMARY KEY'
+  else
+    Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
+              ' DROP INDEX ' + QuoteIdentifier(IndexName);
 end;
 
 class function TMySQLHelpers.GenerateIndexDefinition(const TableName: string;
@@ -165,6 +176,7 @@ begin
               ' ADD INDEX ' + QuoteIdentifier(Idx.IndexName) +
               ' (' + ColNames + ')';
 end;
+
 class function TMySQLHelpers.GenerateModifyColumnSQL(const TableName: string;
   const ColumnInfo: TColumnInfo): string;
 begin
