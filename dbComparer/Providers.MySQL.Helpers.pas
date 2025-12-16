@@ -6,25 +6,25 @@ uses Core.Helpers, Core.Types, System.SysUtils, System.StrUtils,
 type
   TMySQLHelpers = class(TDBHelpers)
   public
-    class function QuoteIdentifier(const Identifier: string): string;
-    class function GenerateColumnDefinition(
-                                      const Col: TColumnInfo): string;
-    class function GenerateIndexDefinition(const TableName: string;
-                                       const Idx: TIndexInfo): string;
-    class function NormalizeType(const AType: string): string;
-    class function TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean;
-    class function GenerateCreateTableSQL(const Table: TTableInfo;
-                                     const Indexes: TArray<TIndexInfo>): string;
-    class function GenerateAddColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
-    class function GenerateDropColumnSQL(const TableName, ColumnName:string): string;
-    class function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
-    class function GenerateDropIndexSQL(const TableName, IndexName:string): string;
-    class function GenerateDropTableSQL(const TableName:String): string;
+    function QuoteIdentifier(const Identifier: string): string; override;
+    function GenerateColumnDefinition(
+                                const Col: TColumnInfo): string; override;
+    function GenerateIndexDefinition(const TableName: string;
+                                 const Idx: TIndexInfo): string; override;
+    function NormalizeType(const AType: string): string; override;
+    function TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean; override;
+    function GenerateCreateTableSQL(const Table: TTableInfo;
+                               const Indexes: TArray<TIndexInfo>): string; override;
+    function GenerateAddColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string; override;
+    function GenerateDropColumnSQL(const TableName, ColumnName:string): string; override;
+    function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string; override;
+    function GenerateDropIndexSQL(const TableName, IndexName:string): string; override;
+    function GenerateDropTableSQL(const TableName:String): string; override;
   end;
 
 implementation
 
-class function TMySQLHelpers.TriggersAreEqual(const Trg1,
+function TMySQLHelpers.TriggersAreEqual(const Trg1,
                                                    Trg2: TTriggerInfo): Boolean;
 begin
   Result := SameText(Trg1.TriggerName, Trg2.TriggerName) and
@@ -33,12 +33,12 @@ begin
             (Trim(Trg1.ActionStatement) = Trim(Trg2.ActionStatement));
 end;
 
-class function TMySQLHelpers.QuoteIdentifier(const Identifier: string): string;
+function TMySQLHelpers.QuoteIdentifier(const Identifier: string): string;
 begin
   Result := '`' + Identifier + '`';
 end;
 
-class function TMySQLHelpers.NormalizeType(const AType: string): string;
+function TMySQLHelpers.NormalizeType(const AType: string): string;
 var
   S: string;
   PStart, PEnd: Integer;
@@ -55,14 +55,14 @@ begin
   Result := StringReplace(S, ' ', '', [rfReplaceAll]);
 end;
 
-class function TMySQLHelpers.GenerateAddColumnSQL(const TableName: string;
+function TMySQLHelpers.GenerateAddColumnSQL(const TableName: string;
   const ColumnInfo: TColumnInfo): string;
 begin
   Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
             ' ADD COLUMN ' + GenerateColumnDefinition(ColumnInfo);
 end;
 
-class function TMySQLHelpers.GenerateColumnDefinition(const Col: TColumnInfo): string;
+function TMySQLHelpers.GenerateColumnDefinition(const Col: TColumnInfo): string;
 var
   DefVal: string;
 begin
@@ -99,7 +99,7 @@ begin
     Result := Result + ' COMMENT ' + QuotedStr(Col.ColumnComment);
 end;
 
-class function TMySQLHelpers.GenerateCreateTableSQL(const Table: TTableInfo;
+function TMySQLHelpers.GenerateCreateTableSQL(const Table: TTableInfo;
   const Indexes: TArray<TIndexInfo>): string;
 var
   i: Integer;
@@ -129,19 +129,19 @@ begin
   end;
 end;
 
-class function TMySQLHelpers.GenerateDropColumnSQL(const TableName,
+function TMySQLHelpers.GenerateDropColumnSQL(const TableName,
   ColumnName: string): string;
 begin
   Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
             ' DROP COLUMN ' + QuoteIdentifier(ColumnName);
 end;
 
-class function TMySQLHelpers.GenerateDropTableSQL(const TableName:String): string;
+function TMySQLHelpers.GenerateDropTableSQL(const TableName:String): string;
 begin
   Result := 'DROP TABLE IF EXISTS ' + QuoteIdentifier(TableName);
 end;
 
-class function TMySQLHelpers.GenerateDropIndexSQL(const TableName,
+function TMySQLHelpers.GenerateDropIndexSQL(const TableName,
   IndexName: string): string;
 begin
   if SameText(IndexName, 'PRIMARY') then
@@ -151,7 +151,7 @@ begin
               ' DROP INDEX ' + QuoteIdentifier(IndexName);
 end;
 
-class function TMySQLHelpers.GenerateIndexDefinition(const TableName: string;
+function TMySQLHelpers.GenerateIndexDefinition(const TableName: string;
                                                      const Idx: TIndexInfo): string;
 var
   i: Integer;
@@ -177,7 +177,7 @@ begin
               ' (' + ColNames + ')';
 end;
 
-class function TMySQLHelpers.GenerateModifyColumnSQL(const TableName: string;
+function TMySQLHelpers.GenerateModifyColumnSQL(const TableName: string;
   const ColumnInfo: TColumnInfo): string;
 begin
   Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
