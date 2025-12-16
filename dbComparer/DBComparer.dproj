@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{E2F4B39A-0E0F-469A-85D4-FA53C81AC78E}</ProjectGuid>
+        <ProjectGuid>{4BBA580E-D6D3-47FB-BFE4-21044F466D97}</ProjectGuid>
         <MainSource>DBComparer.dpr</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
@@ -65,6 +65,13 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="Core.Helpers.pas"/>
+        <DCCReference Include="Core.Engine.pas"/>
+        <DCCReference Include="Core.Interfaces.pas"/>
+        <DCCReference Include="Core.Types.pas"/>
+        <DCCReference Include="Providers.MySQL.pas"/>
+        <DCCReference Include="ScriptWriters.pas"/>
+        <DCCReference Include="Providers.MySQL.Helpers.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

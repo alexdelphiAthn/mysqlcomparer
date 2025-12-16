@@ -85,5 +85,4 @@ begin
     Options.Free; // Importante liberar la clase de opciones
     SourceConn.Free;
     TargetConn.Free;
-  end;
 end.

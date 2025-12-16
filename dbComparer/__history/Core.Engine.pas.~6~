@@ -2,8 +2,7 @@
 
 interface
 
-uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers,
-     Generics.Collections;
+uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers;
 
 type
   TDBComparerEngine = class
@@ -12,7 +11,7 @@ type
     FTargetDB: IDBMetadataProvider; // Interfaz
     FWriter: IScriptWriter;
     FOptions: TComparerOptions;
-    FHelpers: IDBHelpers;
+
     procedure CompareTableStructure(const TableName: string);
     procedure CompareTables;
   public
@@ -82,11 +81,11 @@ begin
     begin
       Col1 := Table1.Columns[i];
       FoundIdx := FindColumn(Table2.Columns, Col1.ColumnName);
+
       if FoundIdx = -1 then
       begin
         // CASO A: La columna no existe en Destino -> CREAR
-        FWriter.AddComment('Agregar columna: ' + TableName + '.' +
-                           Col1.ColumnName);
+        FWriter.AddComment('Agregar columna: ' + TableName + '.' + Col1.ColumnName);
 
         // El Helper se encarga del dialecto SQL (ADD COLUMN vs ADD ...)
         FWriter.AddCommand(FHelpers.GenerateAddColumnSQL(TableName, Col1));
@@ -95,43 +94,51 @@ begin
       begin
         // CASO B: La columna existe -> COMPARAR
         Col2 := Table2.Columns[FoundIdx];
+
         // Usamos la lógica universal del Helper abstracto
         if not FHelpers.ColumnsAreEqual(Col1, Col2) then
         begin
-          FWriter.AddComment('Modificar columna: ' + TableName + '.' +
-                              Col1.ColumnName);
+          FWriter.AddComment('Modificar columna: ' + TableName + '.' + Col1.ColumnName);
+
+          // El Helper se encarga del dialecto SQL (MODIFY COLUMN vs ALTER COLUMN...)
           FWriter.AddCommand(FHelpers.GenerateModifyColumnSQL(TableName, Col1));
         end;
       end;
     end;
+
     // ---------------------------------------------------------
     // 2. Recorrer Destino (Table2) para buscar ELIMINADAS
     // ---------------------------------------------------------
     if not FOptions.NoDelete then
     begin
-      for var i := 0 to Table2.Columns.Count - 1 do
+      for i := 0 to Table2.Columns.Count - 1 do
       begin
         Col2 := Table2.Columns[i];
         FoundIdx := FindColumn(Table1.Columns, Col2.ColumnName);
+
         if FoundIdx = -1 then
         begin
           // CASO C: La columna sobra en destino -> BORRAR
-          FWriter.AddComment('Eliminar columna: ' + TableName + '.' +
-                             Col2.ColumnName);
+          FWriter.AddComment('Eliminar columna: ' + TableName + '.' + Col2.ColumnName);
+
           // El Helper sabe cómo borrar (DROP COLUMN)
-          FWriter.AddCommand(FHelpers.GenerateDropColumnSQL(TableName,
-                                                            Col2.ColumnName));
+          FWriter.AddCommand(FHelpers.GenerateDropColumnSQL(TableName, Col2.ColumnName));
         end;
       end;
     end;
+
     // ---------------------------------------------------------
     // 3. Comparar Índices (Llamada separada)
     // ---------------------------------------------------------
-    //CompareTableIndexes(TableName);
+    CompareTableIndexes(TableName);
+
   finally
     Table1.Free;
     Table2.Free;
   end;
+end;
+
+
 end;
 
 end.

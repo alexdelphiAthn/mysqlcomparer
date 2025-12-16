@@ -131,8 +131,7 @@ begin
   end;
   // Validación básica
   if Result.WithData and Result.WithDataDiff then
-    raise Exception.Create('Error: No puedes usar --with-data y ' +
-                           '--with-data-diff a la vez.');
+    raise Exception.Create('Error: No puedes usar --with-data y --with-data-diff a la vez.');
 end;
 
 { TConnectionConfig }
@@ -160,10 +159,10 @@ begin
     Result.Port := 3306; // Puerto por defecto MySQL
   end;
   // 2. Parsear "Usuario\Password"
+  // Lógica adaptada de OLDPROGRAM.pas
   PartsCred := CredStr.Split(['\']);
   if Length(PartsCred) <> 2 then
-    raise Exception.CreateFmt('Formato de credenciales incorrecto: "%s".'+
-                              ' Use: usuario\password', [CredStr]);
+    raise Exception.CreateFmt('Formato de credenciales incorrecto: "%s". Use: usuario\password', [CredStr]);
   Result.Username := PartsCred[0];
   Result.Password := PartsCred[1];
 end;

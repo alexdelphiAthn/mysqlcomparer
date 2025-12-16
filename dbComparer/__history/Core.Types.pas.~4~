@@ -42,18 +42,8 @@ type
     constructor Create;
     destructor Destroy; override;
   end;
-  TConnectionConfig = record
-    Server: string;
-    Port: Integer;
-    Database: string;
-    Username: string;
-    Password: string;
 
-    // Método estático para convertir los argumentos de consola en configuración
-    class function Parse(const ConnStr, CredStr: string): TConnectionConfig; static;
-  end;
-
-  TComparerOptions = class
+TComparerOptions = class
   public
     NoDelete: Boolean;
     WithTriggers: Boolean;
@@ -131,41 +121,7 @@ begin
   end;
   // Validación básica
   if Result.WithData and Result.WithDataDiff then
-    raise Exception.Create('Error: No puedes usar --with-data y ' +
-                           '--with-data-diff a la vez.');
-end;
-
-{ TConnectionConfig }
-
-class function TConnectionConfig.Parse(const ConnStr, CredStr: string): TConnectionConfig;
-var
-  PartsConn, PartsCred, PartsServer: TArray<string>;
-begin
-  // 1. Parsear "Servidor:Puerto\BaseDeDatos"
-  PartsConn := ConnStr.Split(['\']);
-  if Length(PartsConn) <> 2 then
-    raise Exception.CreateFmt('Formato de conexión incorrecto: "%s". '+
-                                    'Use: servidor:puerto\database', [ConnStr]);
-  Result.Database := PartsConn[1];
-  // Separar Servidor y Puerto
-  PartsServer := PartsConn[0].Split([':']);
-  if Length(PartsServer) = 2 then
-  begin
-    Result.Server := PartsServer[0];
-    Result.Port := StrToIntDef(PartsServer[1], 3306);
-  end
-  else
-  begin
-    Result.Server := PartsConn[0];
-    Result.Port := 3306; // Puerto por defecto MySQL
-  end;
-  // 2. Parsear "Usuario\Password"
-  PartsCred := CredStr.Split(['\']);
-  if Length(PartsCred) <> 2 then
-    raise Exception.CreateFmt('Formato de credenciales incorrecto: "%s".'+
-                              ' Use: usuario\password', [CredStr]);
-  Result.Username := PartsCred[0];
-  Result.Password := PartsCred[1];
+    raise Exception.Create('Error: No puedes usar --with-data y --with-data-diff a la vez.');
 end;
 
 end.

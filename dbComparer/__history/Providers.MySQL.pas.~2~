@@ -38,7 +38,7 @@ implementation
 constructor TMySQLMetadataProvider.Create(Conn: TUniConnection;
   const DBName: string);
 begin
-//  FConn := TUniConnection.Create(nil);
+  FConn := TUniConnection.Create(nil);
   FDBName := DBName;
   FConn.ProviderName := 'MySQL';
 //  FConn1.Server := Server1;

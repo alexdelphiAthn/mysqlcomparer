@@ -1,4 +1,4 @@
-﻿unit Core.Interfaces;
+unit Core.Interfaces;
 
 interface
 
@@ -29,10 +29,10 @@ type
 
   IDBHelpers = interface
     ['{1DCC0AC2-C36B-461F-9DFA-D63CD007C660}']
-    // Comparación (lógica mayormente universal)
+    // Comparaci�n (l�gica mayormente universal)
     function ColumnsAreEqual(const Col1, Col2: TColumnInfo): Boolean;
     function IndexesAreEqual(const Idx1, Idx2: TIndexInfo): Boolean;
-    // Generación SQL (específico de cada motor)
+    // Generaci�n SQL (espec�fico de cada motor)
     function TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean;
     function QuoteIdentifier(const Identifier: string): string;
     function GenerateColumnDefinition(const Col: TColumnInfo): string;
@@ -44,7 +44,7 @@ type
     function GenerateDropColumnSQL(const TableName, ColumnName:string): string;
     function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string;
-    // Normalización (específico de cada motor)
+    // Normalizaci�n (espec�fico de cada motor)
     function NormalizeType(const AType: string): string;
     function NormalizeExtra(const AExtra: string): string;
   end;

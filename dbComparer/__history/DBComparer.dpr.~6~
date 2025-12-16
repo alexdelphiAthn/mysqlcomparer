@@ -49,8 +49,6 @@ end;
 var
   Conn1, Conn2: TUniConnection;
   SourceProvider, TargetProvider: IDBMetadataProvider;
-  SourceConn, TargetConn:TUniConnection;
-  SourceConfig, TargetConfig: TConnectionConfig;
   Writer: IScriptWriter;
   Engine: TDBComparerEngine;
   Options:TComparerOptions;
@@ -61,14 +59,16 @@ begin
       ShowUsage;
       Exit;
     end;
-    SourceConn := TUniConnection.Create(nil);
-    TargetConn := TUniConnection.Create(nil);
+//    Conn1 := TUniConnection.Create(nil);
+//    Conn2 := TUniConnection.Create(nil);
     Options := TComparerOptions.ParseFromCLI;
     // 2. Crear los proveedores (puente entre físico y lógico)
     SourceProvider := TMySQLMetadataProvider.Create(SourceConn, 'BaseOrigen');
     TargetProvider := TMySQLMetadataProvider.Create(TargetConn, 'BaseDestino');
+
     // 3. Crear escritor
-    Writer := TStringListScriptWriter.Create;
+    Writer := TStringListScriptWriter.Create; // Una clase simple que envuelve TStringList
+
     // 4. Crear e iniciar el motor
     Engine := TDBComparerEngine.Create(SourceProvider,
                                        TargetProvider,
@@ -85,5 +85,4 @@ begin
     Options.Free; // Importante liberar la clase de opciones
     SourceConn.Free;
     TargetConn.Free;
-  end;
 end.

@@ -131,8 +131,7 @@ begin
   end;
   // Validación básica
   if Result.WithData and Result.WithDataDiff then
-    raise Exception.Create('Error: No puedes usar --with-data y ' +
-                           '--with-data-diff a la vez.');
+    raise Exception.Create('Error: No puedes usar --with-data y --with-data-diff a la vez.');
 end;
 
 { TConnectionConfig }
@@ -142,11 +141,13 @@ var
   PartsConn, PartsCred, PartsServer: TArray<string>;
 begin
   // 1. Parsear "Servidor:Puerto\BaseDeDatos"
+  // Lógica adaptada de OLDPROGRAM.pas
   PartsConn := ConnStr.Split(['\']);
   if Length(PartsConn) <> 2 then
-    raise Exception.CreateFmt('Formato de conexión incorrecto: "%s". '+
-                                    'Use: servidor:puerto\database', [ConnStr]);
+    raise Exception.CreateFmt('Formato de conexión incorrecto: "%s". Use: servidor:puerto\database', [ConnStr]);
+
   Result.Database := PartsConn[1];
+
   // Separar Servidor y Puerto
   PartsServer := PartsConn[0].Split([':']);
   if Length(PartsServer) = 2 then
@@ -159,11 +160,13 @@ begin
     Result.Server := PartsConn[0];
     Result.Port := 3306; // Puerto por defecto MySQL
   end;
+
   // 2. Parsear "Usuario\Password"
+  // Lógica adaptada de OLDPROGRAM.pas
   PartsCred := CredStr.Split(['\']);
   if Length(PartsCred) <> 2 then
-    raise Exception.CreateFmt('Formato de credenciales incorrecto: "%s".'+
-                              ' Use: usuario\password', [CredStr]);
+    raise Exception.CreateFmt('Formato de credenciales incorrecto: "%s". Use: usuario\password', [CredStr]);
+
   Result.Username := PartsCred[0];
   Result.Password := PartsCred[1];
 end;

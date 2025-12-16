@@ -50,7 +50,6 @@ var
   Conn1, Conn2: TUniConnection;
   SourceProvider, TargetProvider: IDBMetadataProvider;
   SourceConn, TargetConn:TUniConnection;
-  SourceConfig, TargetConfig: TConnectionConfig;
   Writer: IScriptWriter;
   Engine: TDBComparerEngine;
   Options:TComparerOptions;
@@ -85,5 +84,4 @@ begin
     Options.Free; // Importante liberar la clase de opciones
     SourceConn.Free;
     TargetConn.Free;
-  end;
 end.

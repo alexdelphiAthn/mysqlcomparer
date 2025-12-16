@@ -17,14 +17,7 @@ type
                                      const Idx: TIndexInfo): string; virtual; abstract;
     function NormalizeType(const AType: string): string; virtual; abstract;
     function TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean; virtual; abstract;
-    function GenerateCreateTableSQL(const Table: TTableInfo;
-                                     const Indexes: TArray<TIndexInfo>): string; virtual; abstract;
-    function GenerateAddColumnSQL(const TableName:string;
-                                  const ColumnInfo:TColumnInfo): string; virtual; abstract;
-    function GenerateDropColumnSQL(const TableName, ColumnName:string): string; virtual;abstract;
-    function GenerateModifyColumnSQL(const TableName:string;
-                                     const ColumnInfo:TColumnInfo): string; virtual;abstract;
-    function GenerateDropIndexSQL(const TableName, IndexName:string): string; virtual;abstract;
+    function QuoteIdentifier(const Identifier: string): string; virtual; abstract;
   end;
 implementation
 

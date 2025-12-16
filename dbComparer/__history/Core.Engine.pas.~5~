@@ -1,0 +1,77 @@
+﻿unit Core.Engine;
+
+interface
+
+uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers;
+
+type
+  TDBComparerEngine = class
+  private
+    FSourceDB: IDBMetadataProvider; // Interfaz, no objeto concreto
+    FTargetDB: IDBMetadataProvider; // Interfaz
+    FWriter: IScriptWriter;
+    FOptions: TComparerOptions;
+
+    procedure CompareTableStructure(const TableName: string);
+    procedure CompareTables;
+  public
+    constructor Create(Source, Target: IDBMetadataProvider;
+                       Writer: IScriptWriter; Options: TComparerOptions);
+    procedure GenerateScript;
+  end;
+
+implementation
+
+uses
+  System.SysUtils;
+
+constructor TDBComparerEngine.Create(Source, Target: IDBMetadataProvider;
+                                     Writer: IScriptWriter;
+                                     Options: TComparerOptions);
+begin
+  FSourceDB := Source;
+  FTargetDB := Target;
+  FWriter := Writer;
+  FOptions := Options;
+end;
+
+procedure TDBComparerEngine.GenerateScript;
+begin
+  FWriter.AddComment('========================================');
+  FWriter.AddComment('SCRIPT DE SINCRONIZACIÓN');
+  FWriter.AddComment('Generado: ' + DateTimeToStr(Now));
+  FWriter.AddComment('========================================');
+  FWriter.AddCommand('');
+  CompareTables;
+  //CompareViews;
+  //CompareProcedures;
+  //if FOptions.WithTriggers then
+  //  CompareTriggers;
+end;
+
+procedure TDBComparerEngine.CompareTables;
+begin
+//
+end;
+
+procedure TDBComparerEngine.CompareTableStructure(const TableName: string);
+var
+  Table1, Table2: TTableInfo;
+  function FindColumn(List: TList<TColumnInfo>; const Name: string): Integer;
+  var
+    k: Integer;
+  begin
+    Result := -1;
+    for k := 0 to List.Count - 1 do
+      if SameText(List[k].ColumnName, Name) then
+        Exit(k);
+  end;
+begin
+  Table1 := FSourceDB.GetTableStructure(TableName);
+  Table2 := FTargetDB.GetTableStructure(TableName);
+
+
+
+end;
+
+end.
