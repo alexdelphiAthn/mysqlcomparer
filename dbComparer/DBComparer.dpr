@@ -8,7 +8,7 @@ uses
   Core.Types in 'Core.Types.pas',
   Providers.MySQL in 'Providers.MySQL.pas',
   ScriptWriters in 'ScriptWriters.pas',
-  Providers.MySQL.Helpers in 'Providers.MySQL.Helpers.pas';
+  Providers.MySQL.Helpers in 'Providers.MySQL.Helpers.pas', System.SysUtils;
 
 procedure ShowUsage;
 begin
@@ -45,9 +45,7 @@ begin
   Halt(1);
 end;
 
-
 var
-  Conn1, Conn2: TUniConnection;
   SourceProvider, TargetProvider: IDBMetadataProvider;
   SourceConn, TargetConn:TUniConnection;
   SourceConfig, TargetConfig: TConnectionConfig;
@@ -61,29 +59,51 @@ begin
       ShowUsage;
       Exit;
     end;
-    SourceConn := TUniConnection.Create(nil);
-    TargetConn := TUniConnection.Create(nil);
     Options := TComparerOptions.ParseFromCLI;
     // 2. Crear los proveedores (puente entre físico y lógico)
-    SourceProvider := TMySQLMetadataProvider.Create(SourceConn, 'BaseOrigen');
-    TargetProvider := TMySQLMetadataProvider.Create(TargetConn, 'BaseDestino');
-    // 3. Crear escritor
-    Writer := TStringListScriptWriter.Create;
-    // 4. Crear e iniciar el motor
-    Engine := TDBComparerEngine.Create(SourceProvider,
+    SourceConfig := TConnectionConfig.Parse(ParamStr(1), ParamStr(2));
+    TargetConfig := TConnectionConfig.Parse(ParamStr(3), ParamStr(4));
+    try
+      // ---------------------------------------------------------
+      // 2. CONEXIÓN (Usando los Configs parseados)
+      // ---------------------------------------------------------
+      SourceConn := TUniConnection.Create(nil);
+      SourceConn.ProviderName := 'MySQL';
+      SourceConn.Server := SourceConfig.Server;
+      SourceConn.Port := SourceConfig.Port;
+      SourceConn.Username := SourceConfig.Username;
+      SourceConn.Password := SourceConfig.Password;
+      SourceProvider := TMySQLMetadataProvider.Create(SourceConn,
+                                                    SourceConfig.Database);
+      TargetConn := TUniConnection.Create(nil);
+      TargetConn.ProviderName := 'MySQL';
+      TargetConn.Server := TargetConfig.Server;
+      TargetConn.Port := TargetConfig.Port;
+      TargetConn.Username := TargetConfig.Username;
+      TargetConn.Password := TargetConfig.Password;
+      TargetProvider := TMySQLMetadataProvider.Create(TargetConn,
+                                                      TargetConfig.Database);
+      // 3. Crear escritor
+      Writer := TStringListScriptWriter.Create;
+      // 4. Crear e iniciar el motor
+      Engine := TDBComparerEngine.Create(SourceProvider,
                                        TargetProvider,
                                        Writer,
                                        Options);
-    try
-      Engine.GenerateScript;
-      Writeln(Writer.GetScript);
-    finally
-      Engine.Free;
-    end;
+      try
+        Engine.GenerateScript;
+        Writeln(Writer.GetScript);
+      finally
+        Engine.Free;
+      end;
 
-  finally
-    Options.Free; // Importante liberar la clase de opciones
-    SourceConn.Free;
-    TargetConn.Free;
+    finally
+      Options.Free; // Importante liberar la clase de opciones
+      SourceConn.Free;
+      TargetConn.Free;
+    end;
+  except
+    on E: Exception do
+      Writeln(ErrOutput, 'ERROR: ', E.Message);
   end;
 end.
