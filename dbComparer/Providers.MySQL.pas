@@ -59,11 +59,8 @@ constructor TMySQLMetadataProvider.Create(Conn: TUniConnection;
 begin
 //  FConn := TUniConnection.Create(nil);
   FDBName := DBName;
+  Fconn := Conn;
   FConn.ProviderName := 'MySQL';
-//  FConn1.Server := Server1;
-//  FConn1.Port := StrToIntDef(Port1, 3306);
-//  FConn1.Username := User1;
-//  FConn1.Password := Pass1;
   FConn.Connected := True;
 end;
 
