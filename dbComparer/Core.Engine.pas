@@ -16,6 +16,9 @@ type
     procedure CompareTableStructure(const TableName: string);
     procedure CompareTableIndexes(const TableName: string);
     procedure CompareTables;
+    procedure CompareViews;
+    procedure CompareTriggers;
+    procedure CompareProcedures;
     procedure CreateNewTable(const TableName: string);
   public
     constructor Create(Source, Target: IDBMetadataProvider;
@@ -98,10 +101,10 @@ begin
   FWriter.AddComment('========================================');
   FWriter.AddCommand('');
   CompareTables;
-  //CompareViews;
-  //CompareProcedures;
-  //if FOptions.WithTriggers then
-  //  CompareTriggers;
+  CompareViews;
+  CompareProcedures;
+  if FOptions.WithTriggers then
+    CompareTriggers;
 end;
 
 procedure TDBComparerEngine.CompareTables;
@@ -222,6 +225,123 @@ begin
   end;
 end;
 
+procedure TDBComparerEngine.CompareTriggers;
+var
+  SourceTriggers, TargetTriggers: TArray<TTriggerInfo>;
+  i, j: Integer;
+  Found: Boolean;
+  TriggerDef: string;
+begin
+  // Obtener los arrays de triggers (Records)
+  SourceTriggers := FSourceDB.GetTriggers;
+  TargetTriggers := FTargetDB.GetTriggers;
+  FWriter.AddComment('========================================');
+  FWriter.AddComment('TRIGGERS');
+  FWriter.AddComment('========================================');
+  FWriter.AddCommand('');
+  // 1. TRIGGERS ELIMINADOS (Existen en Destino, pero no en Origen)
+  if not FOptions.NoDelete then
+  begin
+    for i := Low(TargetTriggers) to High(TargetTriggers) do
+    begin
+      Found := False;
+      // Buscar si el trigger de destino existe en el origen
+      for j := Low(SourceTriggers) to High(SourceTriggers) do
+      begin
+        if SameText(SourceTriggers[j].TriggerName, TargetTriggers[i].TriggerName) then
+        begin
+          Found := True;
+          Break;
+        end;
+      end;
+      if not Found then
+      begin
+        FWriter.AddComment('Eliminar trigger: ' + TargetTriggers[i].TriggerName);
+        FWriter.AddCommand(FHelpers.GenerateDropTrigger(TargetTriggers[i].TriggerName));
+      end;
+    end;
+  end;
+  // 2. TRIGGERS NUEVOS O MODIFICADOS
+  for i := Low(SourceTriggers) to High(SourceTriggers) do
+  begin
+    Found := False;
+    for j := Low(TargetTriggers) to High(TargetTriggers) do
+    begin
+      // Comparamos por nombre
+      if SameText(SourceTriggers[i].TriggerName, TargetTriggers[j].TriggerName) then
+      begin
+        Found := True;
+
+        // Si existen en ambos, comparamos su contenido usando el Helper
+        if not FHelpers.TriggersAreEqual(SourceTriggers[i], TargetTriggers[j]) then
+        begin
+          FWriter.AddComment('Modificar trigger: ' + SourceTriggers[i].TriggerName);
+
+          // Para modificar un trigger, generalmente se borra y se crea de nuevo
+          FWriter.AddCommand(FHelpers.GenerateDropTrigger(
+                                                SourceTriggers[i].TriggerName));
+          // Obtenemos el SQL completo del trigger desde la BD origen
+          TriggerDef := FSourceDB.GetTriggerDefinition(
+                                                 SourceTriggers[i].TriggerName);
+          // OJO: En algunos clientes MySQL se necesita 'DELIMITER $$',
+          // pero UniDAC/ScriptWriter suelen manejar comandos individuales.
+          // Si vas a ejecutar esto en Workbench, podrías necesitar añadir delimitadores.
+          FWriter.AddCommand(TriggerDef);
+        end;
+        Break;
+      end;
+    end;
+
+    // Si no se encontró en destino, es NUEVO
+    if not Found then
+    begin
+      FWriter.AddComment('Crear trigger: ' + SourceTriggers[i].TriggerName);
+      TriggerDef := FSourceDB.GetTriggerDefinition(
+                                                 SourceTriggers[i].TriggerName);
+      FWriter.AddCommand(TriggerDef);
+    end;
+  end;
+end;
+
+procedure TDBComparerEngine.CompareViews;
+var
+  SourceViews: TStringList;
+  i: Integer;
+begin
+  SourceViews := FSourceDB.GetViews;
+  try
+    FWriter.AddComment('=== VISTAS ===');
+    for i := 0 to SourceViews.Count - 1 do
+    begin
+      FWriter.AddComment('Recreando vista: ' + SourceViews[i]);
+      // MySQL suele requerir DROP antes de create si cambia la definición
+      FWriter.AddCommand(FHelpers.GenerateDropView(SourceViews[i]));
+      FWriter.AddCommand(FSourceDB.GetViewDefinition(SourceViews[i]));
+    end;
+  finally
+    SourceViews.Free;
+  end;
+end;
+
+procedure TDBComparerEngine.CompareProcedures;
+var
+  SourceProcs: TStringList;
+  i: Integer;
+begin
+  SourceProcs := FSourceDB.GetProcedures;
+  try
+    FWriter.AddComment('=== PROCEDIMIENTOS ===');
+    for i := 0 to SourceProcs.Count - 1 do
+    begin
+      FWriter.AddComment('Recreando procedimiento: ' + SourceProcs[i]);
+      FWriter.AddCommand(FHelpers.GenerateDropProcedure(SourceProcs[i]));
+      FWriter.AddCommand(FSourceDB.GetProcedureDefinition(SourceProcs[i]));
+    end;
+  finally
+    SourceProcs.Free;
+  end;
+end;
+
 procedure TDBComparerEngine.CompareTableIndexes(const TableName: string);
 var
   SourceIndexes, TargetIndexes: TArray<TIndexInfo>;
@@ -229,7 +349,6 @@ var
 begin
   SourceIndexes := FSourceDB.GetTableIndexes(TableName);
   TargetIndexes := FTargetDB.GetTableIndexes(TableName);
-
   // 1. Eliminar índices que ya no existen
   if not FOptions.NoDelete then
   begin
@@ -238,7 +357,6 @@ begin
       // No borrar PRIMARY KEY aquí (se maneja diferente)
       if TargetIndexes[i].IsPrimary then
         Continue;
-
       Found := False;
       for var j := 0 to High(SourceIndexes) do
       begin
@@ -248,7 +366,6 @@ begin
           Break;
         end;
       end;
-
       if not Found then
       begin
         FWriter.AddComment('Eliminar índice: ' + TableName + '.' +
@@ -258,7 +375,6 @@ begin
       end;
     end;
   end;
-
   // 2. Crear o modificar índices
   for var i := 0 to High(SourceIndexes) do
   begin
@@ -268,27 +384,19 @@ begin
       if SameText(SourceIndexes[i].IndexName, TargetIndexes[j].IndexName) then
       begin
         Found := True;
-
         // Si son diferentes, recrear
         if not FHelpers.IndexesAreEqual(SourceIndexes[i], TargetIndexes[j]) then
         begin
           FWriter.AddComment('Modificar índice: ' + TableName + '.' +
                             SourceIndexes[i].IndexName);
-
-          // Para PRIMARY KEY usar sintaxis especial
-          if SourceIndexes[i].IsPrimary then
-            FWriter.AddCommand('ALTER TABLE `' + TableName + '` DROP PRIMARY KEY')
-          else
             FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
                                                              SourceIndexes[i].IndexName));
-
           FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName,
                                                               SourceIndexes[i]));
         end;
         Break;
       end;
     end;
-
     // Índice nuevo
     if not Found then
     begin

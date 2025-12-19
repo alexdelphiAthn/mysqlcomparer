@@ -76,7 +76,7 @@ begin
       SourceConn.Username := SourceConfig.Username;
       SourceConn.Password := SourceConfig.Password;
       SourceProvider := TMySQLMetadataProvider.Create(SourceConn,
-                                                    SourceConfig.Database);
+                                                      SourceConfig.Database);
       TargetConn := TUniConnection.Create(nil);
       TargetConn.ProviderName := 'MySQL';
       TargetConn.Server := TargetConfig.Server;
@@ -90,19 +90,18 @@ begin
       SourceHelpers := TMySQLHelpers.Create;
       // 4. Crear e iniciar el motor
       Engine := TDBComparerEngine.Create(SourceProvider,
-                                       TargetProvider,
-                                       Writer,
-                                       SourceHelpers,
-                                       Options);
+                                         TargetProvider,
+                                         Writer,
+                                         SourceHelpers,
+                                         Options);
       try
         Engine.GenerateScript;
         Writeln(Writer.GetScript);
       finally
         Engine.Free;
       end;
-
     finally
-      Options.Free; // Importante liberar la clase de opciones
+      Options.Free;
       SourceConn.Free;
       TargetConn.Free;
     end;

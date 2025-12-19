@@ -2,7 +2,8 @@
 
 interface
 uses
-  Core.Types, Core.Interfaces, System.SysUtils, System.StrUtils;
+  Core.Types, Core.Interfaces, System.SysUtils, System.StrUtils,
+  Data.DB, system.Classes;
 type
   TDBHelpers = class(TInterfacedObject, IDBHelpers)
   public
@@ -26,6 +27,12 @@ type
                                      const ColumnInfo:TColumnInfo): string; virtual;abstract;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string; virtual;abstract;
     function GenerateDropTableSQL(const TableName:String): string; virtual; abstract;
+    function GenerateDropTrigger(const Trigger:string):string; virtual; abstract;
+    function GenerateDropView(const View:string):string; virtual; abstract;
+    function GenerateDropProcedure(const Proc:string):string; virtual; abstract;
+    function GenerateInsertSQL(const TableName: string; Fields, Values: TStringList): string; virtual; abstract;
+    function GenerateUpdateSQL(const TableName: string; const SetClause, WhereClause: string): string; virtual; abstract;
+    function ValueToSQL(const Field: TField): string; virtual; abstract;
   end;
 implementation
 
@@ -65,6 +72,7 @@ begin
   if Result then
     Result := SameText(Col1.ColumnComment, Col2.ColumnComment);
 end;
+
 function TDBHelpers.IndexesAreEqual(const Idx1, Idx2: TIndexInfo): Boolean;
 var
   i: Integer;

@@ -27,6 +27,7 @@ type
     function GetViewDefinition(const ViewName:string):string;
     function GetProcedures:TStringList;
     function GetProcedureDefinition(const ProcedureName:string):string;
+    function GetData(const TableName: string; const Filter: string = ''): TDataSet;
   private
     function StripDefiner(const SQL: string): string;
   end;
@@ -34,6 +35,24 @@ type
 implementation
 
 { TMySQLMetadataProvider }
+
+function TMySQLMetadataProvider.GetData(const TableName: string; const Filter: string = ''): TDataSet;
+var
+  Query: TUniQuery;
+  function QuoteIdentifier(const Identifier: string): string;
+begin
+  Result := '`' + Identifier + '`';
+end;
+begin
+  Query := TUniQuery.Create(nil);
+  Query.Connection := FConn;
+  Query.SQL.Text := 'SELECT * FROM ' + QuoteIdentifier(TableName);
+  if Filter <> '' then
+    Query.SQL.Add('WHERE ' + Filter);
+  Query.Open;
+  Result := Query; // El Engine será responsable de liberarlo
+end;
+
 
 constructor TMySQLMetadataProvider.Create(Conn: TUniConnection;
   const DBName: string);

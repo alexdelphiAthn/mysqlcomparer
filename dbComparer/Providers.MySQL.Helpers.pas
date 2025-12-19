@@ -2,7 +2,7 @@
 
 interface
 uses Core.Helpers, Core.Types, System.SysUtils, System.StrUtils,
-  System.Classes;
+  System.Classes, Data.DB, Uni;
 type
   TMySQLHelpers = class(TDBHelpers)
   public
@@ -20,6 +20,10 @@ type
     function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string; override;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string; override;
     function GenerateDropTableSQL(const TableName:String): string; override;
+    function GenerateDropTrigger(const Trigger:string):string; override;
+    function GenerateDropProcedure(const Proc:string):string; override;
+    function GenerateDropView(const View:string):string; override;
+//    function GetData(const TableName: string; const Filter: string = ''): TDataSet;
   end;
 
 implementation
@@ -141,6 +145,16 @@ begin
   Result := 'DROP TABLE IF EXISTS ' + QuoteIdentifier(TableName);
 end;
 
+function TMySQLHelpers.GenerateDropTrigger(const Trigger: string): string;
+begin
+  Result := 'DROP TRIGGER IF EXISTS ' + QuoteIdentifier(Trigger);
+end;
+
+function TMySQLHelpers.GenerateDropView(const View: string): string;
+begin
+  Result := 'DROP VIEW IF EXISTS ' + QuoteIdentifier(View);
+end;
+
 function TMySQLHelpers.GenerateDropIndexSQL(const TableName,
   IndexName: string): string;
 begin
@@ -149,6 +163,11 @@ begin
   else
     Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
               ' DROP INDEX ' + QuoteIdentifier(IndexName);
+end;
+
+function TMySQLHelpers.GenerateDropProcedure(const Proc: string): string;
+begin
+  Result:= 'DROP PROCEDURE IF EXISTS ' + QuoteIdentifier(Proc);
 end;
 
 function TMySQLHelpers.GenerateIndexDefinition(const TableName: string;
@@ -183,5 +202,6 @@ begin
   Result := 'ALTER TABLE ' + QuoteIdentifier(TableName) +
             ' MODIFY COLUMN ' + GenerateColumnDefinition(ColumnInfo);
 end;
+
 
 end.

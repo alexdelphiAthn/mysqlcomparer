@@ -2,7 +2,7 @@
 
 interface
 
-uses System.Classes, Core.Types;
+uses System.Classes, Core.Types, Data.DB;
 
 type
   // Contrato para leer la estructura de la BD
@@ -40,14 +40,26 @@ type
                                      const Idx: TIndexInfo): string;
     function GenerateCreateTableSQL(const Table: TTableInfo;
                                     const Indexes: TArray<TIndexInfo>): string;
-    function GenerateAddColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
+    function GenerateAddColumnSQL(const TableName:string;
+                                  const ColumnInfo:TColumnInfo): string;
     function GenerateDropColumnSQL(const TableName, ColumnName:string): string;
-    function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string;
+    function GenerateModifyColumnSQL(const TableName:string;
+                                     const ColumnInfo:TColumnInfo): string;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string;
+    function GenerateDropTrigger(const Trigger:string):string;
+    function GenerateDropProcedure(const Proc:string):string;
+        function GenerateDropView(const View:string):string;
     function GenerateDropTableSQL(const TableName:String): string;
+    function GenerateInsertSQL(const TableName: string;
+                               Fields, Values: TStringList): string;
+    function GenerateUpdateSQL(const TableName: string;
+                               const SetClause, WhereClause: string): string;
+    function ValueToSQL(const Field: TField): string;
     // Normalización (específico de cada motor)
     function NormalizeType(const AType: string): string;
     function NormalizeExtra(const AExtra: string): string;
   end;
+
 implementation
+
 end.
