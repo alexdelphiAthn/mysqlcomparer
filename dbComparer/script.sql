@@ -1,6 +1,6 @@
 -- ========================================
 -- SCRIPT DE SINCRONIZACIÓN
--- Generado: 19/12/2025 17:50:02
+-- Generado: 19/12/2025 18:05:50
 -- ========================================
 
 
@@ -81,6 +81,7 @@ CREATE ALGORITHM=UNDEFINED  VIEW `v_suboc_presupuestos` AS select `f`.`NRO_FACTU
 -- Recreando procedimiento: GET_NEXT_CONT
 DROP PROCEDURE IF EXISTS `GET_NEXT_CONT`
 
+DELIMITER $$
 CREATE  PROCEDURE `GET_NEXT_CONT`(IN pTipoDoc varchar(2), OUT pcont int)
 BEGIN
 START TRANSACTION;
@@ -109,11 +110,13 @@ START TRANSACTION;
   END;
   END IF;
 COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: GET_NEXT_CONT_FACT_SERIE
 DROP PROCEDURE IF EXISTS `GET_NEXT_CONT_FACT_SERIE`
 
+DELIMITER $$
 CREATE  PROCEDURE `GET_NEXT_CONT_FACT_SERIE`(IN pserie varchar(10), IN pTipoDoc varchar(2), OUT pcont int)
 BEGIN
 START TRANSACTION;
@@ -126,11 +129,13 @@ START TRANSACTION;
                 where SERIE_CONTADOR = pserie 
                   and TIPODOC_CONTADOR = pTipoDoc LIMIT 1);
 COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CALCULAR_FACTURA
 DROP PROCEDURE IF EXISTS `PRC_CALCULAR_FACTURA`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CALCULAR_FACTURA`(IN `pidseriefactura` varchar(200),
 	IN `pidnumfactura` varchar(200))
 BEGIN
@@ -142,11 +147,13 @@ BEGIN
 		WHERE NRO_FACTURA = pidnumfactura
 		  AND SERIE_FACTURA = pidseriefactura;			
 	COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CALCULAR_PRESUPUESTO
 DROP PROCEDURE IF EXISTS `PRC_CALCULAR_PRESUPUESTO`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CALCULAR_PRESUPUESTO`(IN `pidseriefactura` varchar(200),
 	IN `pidnumfactura` varchar(200))
 BEGIN
@@ -158,11 +165,13 @@ BEGIN
 		WHERE NRO_FACTURA = pidnumfactura
 		  AND SERIE_FACTURA = pidseriefactura;			
 	COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_ACTUALIZAR_CLIENTE
 DROP PROCEDURE IF EXISTS `PRC_CREAR_ACTUALIZAR_CLIENTE`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_ACTUALIZAR_CLIENTE`(IN `pCODIGO_CLIENTE` int(10),
 	IN `pRAZONSOCIAL_CLIENTE` varchar(200),
 	IN `pNOMBRE` varchar(100),
@@ -233,11 +242,13 @@ START TRANSACTION;
 	END;
   END IF;
 	COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_ACTUALIZAR_HISTORIA_FACTURA
 DROP PROCEDURE IF EXISTS `PRC_CREAR_ACTUALIZAR_HISTORIA_FACTURA`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_ACTUALIZAR_HISTORIA_FACTURA`(IN  `pID_HISTORIA` bigint,
 	IN  `pSERIEin` varchar(4),
 	IN  `pFECHAin` date,
@@ -417,11 +428,13 @@ IF( NOT( EXISTS(
 				 LINEA_LINEA = @nrolinea
 	 WHERE ID = `pID_HISTORIA`;
 	COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_FACTURA_ABONO
 DROP PROCEDURE IF EXISTS `PRC_CREAR_FACTURA_ABONO`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_FACTURA_ABONO`(IN `pidseriefactura` varchar(200),
 	IN `pidnumfactura` varchar(200),
 	IN `pidseriefacturaabono` varchar(200),
@@ -495,11 +508,13 @@ BEGIN
 							 WHERE `SERIE_FACTURA_LINEA` = pidseriefactura  
 							   AND `NRO_FACTURA_LINEA` = pidnumfactura;
 		COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_FACTURA_DUPLICADA
 DROP PROCEDURE IF EXISTS `PRC_CREAR_FACTURA_DUPLICADA`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_FACTURA_DUPLICADA`(IN `pidseriefactura` varchar(200),
 	IN `pidnumfactura` varchar(200),
 	IN `pidseriefacturaabono` varchar(200),
@@ -573,11 +588,13 @@ BEGIN
 							 WHERE `SERIE_FACTURA_LINEA` = pidseriefactura  
 							   AND `NRO_FACTURA_LINEA` = pidnumfactura;
 		COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_FACTURA_PRESUPUESTO
 DROP PROCEDURE IF EXISTS `PRC_CREAR_FACTURA_PRESUPUESTO`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_FACTURA_PRESUPUESTO`(IN `pidseriepresupuesto` varchar(200),
 	IN `pidnumpresupuesto` varchar(200),
 	IN `pidseriefactura` varchar(200),
@@ -654,11 +671,13 @@ BEGIN
 										  FROM suboc_presupuestos_lineas
 										 WHERE `SERIE_FACTURA_LINEA` = pidseriepresupuesto  
 											 AND `NRO_FACTURA_LINEA` = pidnumpresupuesto;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_RECIBOS_FACTURA
 DROP PROCEDURE IF EXISTS `PRC_CREAR_RECIBOS_FACTURA`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_RECIBOS_FACTURA`(IN `pSERIE_FACTURA` varchar(8),
 	                                                                         IN `pNRO_FACTURA` int(8))
 BEGIN
@@ -877,11 +896,13 @@ BEGIN
 		END;
 		END IF;
 		COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_CREAR_RECIBOS_PRESUPUESTO
 DROP PROCEDURE IF EXISTS `PRC_CREAR_RECIBOS_PRESUPUESTO`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_CREAR_RECIBOS_PRESUPUESTO`(IN `pSERIE_FACTURA` varchar(8),
 	                                                                         IN `pNRO_FACTURA` int(8))
 BEGIN
@@ -1100,11 +1121,13 @@ BEGIN
 		END;
 		END IF;
 		COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_GET_DATA_ARTICULO
 DROP PROCEDURE IF EXISTS `PRC_GET_DATA_ARTICULO`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_GET_DATA_ARTICULO`(IN pidcodarticulo varchar(200), 
 											OUT pidnomarticulo varchar(200), 
 											OUT pidprecioventa decimal(18,6))
@@ -1125,11 +1148,13 @@ BEGIN
 	  SET pidprecioventa = 0.00;
 	END;
   END IF;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_GET_DATA_CLIENTE
 DROP PROCEDURE IF EXISTS `PRC_GET_DATA_CLIENTE`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_GET_DATA_CLIENTE`(
     IN `pCODIGO_CLIENTE` int(10),
     OUT `pRAZONSOCIAL_CLIENTE` varchar(200),
@@ -1195,11 +1220,13 @@ BEGIN
     SET pPAIS_CLIENTE = '';
     SET pTIPOID_INT_CLIENTE = '';
   END IF;
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_GET_EMPTY_FACTURA_PARA_VALIDAR
 DROP PROCEDURE IF EXISTS `PRC_GET_EMPTY_FACTURA_PARA_VALIDAR`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_GET_EMPTY_FACTURA_PARA_VALIDAR`(IN `pNif` varchar(10),
     IN `pRazonSocial` varchar(200),
     OUT `pJsonResult` longtext)
@@ -1241,11 +1268,13 @@ BEGIN
             'amount', 0
         )
     );
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: PRC_RESUMEN_ERRORES_VERIFACTU
 DROP PROCEDURE IF EXISTS `PRC_RESUMEN_ERRORES_VERIFACTU`
 
+DELIMITER $$
 CREATE  PROCEDURE `PRC_RESUMEN_ERRORES_VERIFACTU`()
 BEGIN
     SELECT 
@@ -1272,11 +1301,13 @@ BEGIN
         COUNT(*) as TOTAL_OPERACIONES
     FROM suboc_verifactu_queue 
     WHERE ESTADO_COLA = 'COMPLETADO';
-END
+END $$
+DELIMITER ;
 
 -- Recreando procedimiento: SET_CONSOLIDACION_FASE
 DROP PROCEDURE IF EXISTS `SET_CONSOLIDACION_FASE`
 
+DELIMITER $$
 CREATE  PROCEDURE `SET_CONSOLIDACION_FASE`(IN pNumFactura int(8), 
                                            IN pSerieFactura varchar(8), 
                                            IN pFaseConso varchar(20), 
@@ -1290,12 +1321,14 @@ BEGIN
 	  WHERE NRO_FACTURA = pNumFactura 
       AND SERIE_FACTURA = pSerieFactura;
 	COMMIT;
-END
+END $$
+DELIMITER ;
 
 -- === FUNCIONES ===
 -- Recreando función: FNC_BUSCAR_POR_VERIFACTU_QUEUE_ID
 DROP FUNCTION IF EXISTS `FNC_BUSCAR_POR_VERIFACTU_QUEUE_ID`
 
+DELIMITER $$
 CREATE  FUNCTION `FNC_BUSCAR_POR_VERIFACTU_QUEUE_ID`(pQueueId INT) RETURNS varchar(100) CHARSET utf8mb4 COLLATE utf8mb4_spanish_ci
     READS SQL DATA
     DETERMINISTIC
@@ -1309,11 +1342,13 @@ BEGIN
     LIMIT 1;
     
     RETURN COALESCE(vFactura, 'NO ENCONTRADA');
-END
+END $$
+DELIMITER ;
 
 -- Recreando función: FNC_GET_NEXT_LINEA_FACTURA
 DROP FUNCTION IF EXISTS `FNC_GET_NEXT_LINEA_FACTURA`
 
+DELIMITER $$
 CREATE  FUNCTION `FNC_GET_NEXT_LINEA_FACTURA`(pnumfac varchar(8), 
                                              pserie varchar(8)) RETURNS varchar(3) CHARSET utf8 COLLATE utf8_spanish_ci
 BEGIN
@@ -1329,11 +1364,13 @@ BEGIN
    SET ppresul = pnextnum;
  END IF;
  RETURN ppresul;
-END
+END $$
+DELIMITER ;
 
 -- Recreando función: FNC_GET_NEXT_LINEA_PRESUPUESTO
 DROP FUNCTION IF EXISTS `FNC_GET_NEXT_LINEA_PRESUPUESTO`
 
+DELIMITER $$
 CREATE  FUNCTION `FNC_GET_NEXT_LINEA_PRESUPUESTO`(pnumfac varchar(8), 
                                              pserie varchar(8)) RETURNS varchar(3) CHARSET utf8 COLLATE utf8_spanish_ci
 BEGIN
@@ -1349,11 +1386,13 @@ BEGIN
    SET ppresul = pnextnum;
  END IF;
  RETURN ppresul;
-END
+END $$
+DELIMITER ;
 
 -- Recreando función: GET_NUMEROS_A_LETRAS
 DROP FUNCTION IF EXISTS `GET_NUMEROS_A_LETRAS`
 
+DELIMITER $$
 CREATE  FUNCTION `GET_NUMEROS_A_LETRAS`(NUMERO DECIMAL(12,2)) RETURNS varchar(200) CHARSET utf8mb4 COLLATE utf8mb4_spanish_ci
 BEGIN
 	DECLARE MILLARES INT;
@@ -1408,11 +1447,13 @@ BEGIN
 	END;
 	END IF;
 	RETURN(EN_LETRAS);
-END
+END $$
+DELIMITER ;
 
 -- Recreando función: GET_NUMERO_MENOR_MIL
 DROP FUNCTION IF EXISTS `GET_NUMERO_MENOR_MIL`
 
+DELIMITER $$
 CREATE  FUNCTION `GET_NUMERO_MENOR_MIL`(NUMERO DECIMAL(4)) RETURNS varchar(100) CHARSET utf8mb4 COLLATE utf8mb4_spanish_ci
 BEGIN
        DECLARE CENTENAS INT;
@@ -1519,7 +1560,7 @@ BEGIN
             END IF;
         END IF;
         RETURN(EN_LETRAS);
-    END
+    END $$
+DELIMITER ;
 
 
-Runtime error 217 at 00CA8F69

@@ -112,7 +112,7 @@ end;
 
 destructor TMySQLMetadataProvider.Destroy;
 begin
-  Fconn.Free;
+  //Fconn.Free;
   inherited;
 end;
 

@@ -29,6 +29,8 @@ type
     function GenerateDropFunction(const FuncName: string): string; override;
     function GenerateDropView(const View:string):string; override;
     function ValueToSQL(const Field: TField): string;
+    function GenerateCreateProcedureSQL(const Body: string): string; override;
+    function GenerateCreateFunctionSQL(const Body: string): string; override;
     function GenerateDeleteSQL(const TableName, WhereClause: string): string; override;
     function GenerateInsertSQL(const TableName: string; Fields,
                                                         Values: TStringList): string; override;
@@ -171,6 +173,22 @@ begin
     Result := Result + ' ON UPDATE CURRENT_TIMESTAMP';
   if not SameText(Col.ColumnComment, '') then
     Result := Result + ' COMMENT ' + QuotedStr(Col.ColumnComment);
+end;
+
+function TMySQLHelpers.GenerateCreateProcedureSQL(const Body: string): string;
+begin
+  // MySQL necesita cambiar el delimitador para que no corte en el primer ';'
+  Result := 'DELIMITER $$' + sLineBreak +
+            Body + ' $$' + sLineBreak +
+            'DELIMITER ;';
+end;
+
+function TMySQLHelpers.GenerateCreateFunctionSQL(const Body: string): string;
+begin
+  // Exactamente igual para funciones en MySQL
+  Result := 'DELIMITER $$' + sLineBreak +
+            Body + ' $$' + sLineBreak +
+            'DELIMITER ;';
 end;
 
 function TMySQLHelpers.GenerateCreateTableSQL(const Table: TTableInfo;

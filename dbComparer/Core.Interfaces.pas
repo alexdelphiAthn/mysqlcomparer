@@ -63,6 +63,8 @@ type
     // Normalización (específico de cada motor)
     function NormalizeType(const AType: string): string;
     function NormalizeExtra(const AExtra: string): string;
+    function GenerateCreateProcedureSQL(const Body: string): string;
+    function GenerateCreateFunctionSQL(const Body: string): string;
   end;
 
 implementation

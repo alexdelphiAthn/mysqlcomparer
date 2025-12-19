@@ -538,7 +538,8 @@ begin
     begin
       FWriter.AddComment('Recreando procedimiento: ' + SourceProcs[i]);
       FWriter.AddCommand(FHelpers.GenerateDropProcedure(SourceProcs[i]));
-      FWriter.AddCommand(FSourceDB.GetProcedureDefinition(SourceProcs[i]));
+      var strProc := FSourceDB.GetProcedureDefinition(SourceProcs[i]);
+      FWriter.AddCommand(FHelpers.GenerateCreateProcedureSQL(strProc));
     end;
   finally
     SourceProcs.Free;
@@ -558,7 +559,8 @@ begin
       FWriter.AddComment('Recreando función: ' + SourceFuncs[i]);
       // Borrar y crear
       FWriter.AddCommand(FHelpers.GenerateDropFunction(SourceFuncs[i]));
-      FWriter.AddCommand(FSourceDB.GetFunctionDefinition(SourceFuncs[i]));
+      var strFunc := FSourceDB.GetFunctionDefinition(SourceFuncs[i]);
+      FWriter.AddCommand(FHelpers.GenerateCreateFunctionSQL(strFunc));
     end;
   finally
     SourceFuncs.Free;
