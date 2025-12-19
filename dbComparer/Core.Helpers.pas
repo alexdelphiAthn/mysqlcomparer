@@ -25,13 +25,15 @@ type
     function GenerateDropColumnSQL(const TableName, ColumnName:string): string; virtual;abstract;
     function GenerateModifyColumnSQL(const TableName:string;
                                      const ColumnInfo:TColumnInfo): string; virtual;abstract;
+     function GenerateUpdateSQL(const TableName: string;
+                                  const SetClause, WhereClause: string): string; virtual; abstract;
     function GenerateDropIndexSQL(const TableName, IndexName:string): string; virtual;abstract;
     function GenerateDropTableSQL(const TableName:String): string; virtual; abstract;
     function GenerateDropTrigger(const Trigger:string):string; virtual; abstract;
     function GenerateDropView(const View:string):string; virtual; abstract;
     function GenerateDropProcedure(const Proc:string):string; virtual; abstract;
+    function GenerateDeleteSQL(const TableName, WhereClause: string): string; virtual; abstract;
     function GenerateInsertSQL(const TableName: string; Fields, Values: TStringList): string; virtual; abstract;
-    function GenerateUpdateSQL(const TableName: string; const SetClause, WhereClause: string): string; virtual; abstract;
     function ValueToSQL(const Field: TField): string; virtual; abstract;
   end;
 implementation

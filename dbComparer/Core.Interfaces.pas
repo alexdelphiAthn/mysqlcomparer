@@ -7,13 +7,14 @@ uses System.Classes, Core.Types, Data.DB;
 type
   // Contrato para leer la estructura de la BD
   IDBMetadataProvider = interface
-    ['{026B999C-B5BD-4C33-A080-9675C56A0738}'] // Presiona Ctrl+Shift+G en Delphi
+    ['{026B999C-B5BD-4C33-A080-9675C56A0738}']
     function GetTables: TStringList;
     function GetTableStructure(const TableName: string): TTableInfo;
     function GetTableIndexes(const TableName: string): TArray<TIndexInfo>;
     function GetTriggers: TArray<TTriggerInfo>;
     function GetTriggerDefinition(const TriggerName: string): string;
     function GetViews:TStringList;
+    function GetData(const TableName: string; const Filter: string = ''): TDataSet;
     function GetViewDefinition(const ViewName:string):string;
     function GetProcedures:TStringList;
     function GetProcedureDefinition(const ProcedureName:string):string;
@@ -54,6 +55,7 @@ type
                                Fields, Values: TStringList): string;
     function GenerateUpdateSQL(const TableName: string;
                                const SetClause, WhereClause: string): string;
+    function GenerateDeleteSQL(const TableName, WhereClause: string): string;
     function ValueToSQL(const Field: TField): string;
     // Normalización (específico de cada motor)
     function NormalizeType(const AType: string): string;

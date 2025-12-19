@@ -7,26 +7,95 @@ type
   TMySQLHelpers = class(TDBHelpers)
   public
     function QuoteIdentifier(const Identifier: string): string; override;
-    function GenerateColumnDefinition(
-                                const Col: TColumnInfo): string; override;
+    function GenerateColumnDefinition(const Col: TColumnInfo): string; override;
     function GenerateIndexDefinition(const TableName: string;
-                                 const Idx: TIndexInfo): string; override;
+                                     const Idx: TIndexInfo): string; override;
     function NormalizeType(const AType: string): string; override;
     function TriggersAreEqual(const Trg1, Trg2: TTriggerInfo): Boolean; override;
     function GenerateCreateTableSQL(const Table: TTableInfo;
-                               const Indexes: TArray<TIndexInfo>): string; override;
-    function GenerateAddColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string; override;
+                                    const Indexes: TArray<TIndexInfo>): string; override;
+    function GenerateAddColumnSQL(const TableName:string;
+                                  const ColumnInfo:TColumnInfo): string; override;
     function GenerateDropColumnSQL(const TableName, ColumnName:string): string; override;
-    function GenerateModifyColumnSQL(const TableName:string; const ColumnInfo:TColumnInfo): string; override;
-    function GenerateDropIndexSQL(const TableName, IndexName:string): string; override;
+    function GenerateModifyColumnSQL(const TableName:string;
+                                     const ColumnInfo:TColumnInfo): string; override;
+    function GenerateUpdateSQL(const TableName: string;
+                                  const SetClause, WhereClause: string): string; override;
+    function GenerateDropIndexSQL(const TableName,
+                                        IndexName:string): string; override;
     function GenerateDropTableSQL(const TableName:String): string; override;
     function GenerateDropTrigger(const Trigger:string):string; override;
     function GenerateDropProcedure(const Proc:string):string; override;
     function GenerateDropView(const View:string):string; override;
-//    function GetData(const TableName: string; const Filter: string = ''): TDataSet;
+    function ValueToSQL(const Field: TField): string;
+    function GenerateDeleteSQL(const TableName, WhereClause: string): string; override;
+    function GenerateInsertSQL(const TableName: string; Fields,
+                                                        Values: TStringList): string; override;
+
   end;
 
 implementation
+
+// Añadir en uses: Data.DB, System.SysUtils, System.Classes, System.StrUtils
+
+function TMySQLHelpers.ValueToSQL(const Field: TField): string;
+  function BytesToHex(const Bytes: TBytes): string;
+  var
+    i: Integer;
+  begin
+    Result := '';
+    for i := Low(Bytes) to High(Bytes) do
+      Result := Result + IntToHex(Bytes[i], 2);
+  end;
+begin
+  if Field.IsNull then
+    Exit('NULL');
+
+  case Field.DataType of
+    ftString, ftWideString, ftMemo, ftWideMemo, ftFmtMemo:
+      Result := QuotedStr(Field.AsString);
+    ftDate, ftTime, ftDateTime, ftTimeStamp:
+      // MySQL prefiere formato estándar 'YYYY-MM-DD HH:MM:SS'
+      Result := QuotedStr(FormatDateTime('yyyy-mm-dd hh:nn:ss', Field.AsDateTime));
+    ftBoolean:
+      Result := IntToStr(Ord(Field.AsBoolean));
+    ftBlob, ftGraphic, ftVarBytes, ftBytes:
+      Result := '0x' + BytesToHex(Field.AsBytes);
+    else
+      // Números y otros
+      Result := Field.AsString;
+  end;
+end;
+
+function TMySQLHelpers.GenerateInsertSQL(const TableName: string;
+  Fields, Values: TStringList): string;
+var
+  i: Integer;
+  FieldList, ValueList: string;
+begin
+  // Unimos manualmente para evitar que CommaText escape cosas que no debe
+  FieldList := '';
+  ValueList := '';
+  for i := 0 to Fields.Count - 1 do
+  begin
+    if i > 0 then FieldList := FieldList + ', ';
+    FieldList := FieldList + Fields[i];
+  end;
+  for i := 0 to Values.Count - 1 do
+  begin
+    if i > 0 then ValueList := ValueList + ', ';
+    ValueList := ValueList + Values[i];
+  end;
+  Result := 'INSERT INTO ' + QuoteIdentifier(TableName) + ' (' +
+            FieldList + ') VALUES (' + ValueList + ');';
+end;
+
+function TMySQLHelpers.GenerateUpdateSQL(const TableName: string;
+  const SetClause, WhereClause: string): string;
+begin
+  Result := 'UPDATE ' + QuoteIdentifier(TableName) + ' SET ' + SetClause +
+            ' WHERE ' + WhereClause + ';';
+end;
 
 function TMySQLHelpers.TriggersAreEqual(const Trg1,
                                                    Trg2: TTriggerInfo): Boolean;
@@ -131,6 +200,13 @@ begin
   finally
     PKList.Free;
   end;
+end;
+
+function TMySQLHelpers.GenerateDeleteSQL(const TableName,
+  WhereClause: string): string;
+begin
+  Result := 'DELETE FROM ' + QuoteIdentifier(TableName) +
+            ' WHERE ' + WhereClause + ';';
 end;
 
 function TMySQLHelpers.GenerateDropColumnSQL(const TableName,

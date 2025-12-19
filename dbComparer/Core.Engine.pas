@@ -3,7 +3,7 @@
 interface
 
 uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers,
-     Generics.Collections, Providers.MySQL.Helpers;
+     Generics.Collections, Providers.MySQL.Helpers, Data.DB;
 
 type
   TDBComparerEngine = class
@@ -20,6 +20,9 @@ type
     procedure CompareTriggers;
     procedure CompareProcedures;
     procedure CreateNewTable(const TableName: string);
+    procedure CompareData(const TableName: string);
+    procedure CopyAllData(const TableName: string);
+    function BuildWhereClause(const PKCols: TStringList; DataSet: TDataSet): string;
   public
     constructor Create(Source, Target: IDBMetadataProvider;
                        Writer: IScriptWriter;
@@ -140,6 +143,33 @@ begin
         // Tabla existente - Comparar estructura
         CompareTableStructure(SourceTables[i]);
       end;
+    end;
+    // --- INTEGRACIÓN DE DATOS ---
+    if FOptions.WithData or FOptions.WithDataDiff then
+    begin
+       for i := 0 to SourceTables.Count - 1 do
+       begin
+         // Lógica de Filtro (Include/Exclude Tables)
+         var SkipData := False;
+         if (FOptions.IncludeTables.Count > 0) and
+            (FOptions.IncludeTables.IndexOf(SourceTables[i]) = -1) then
+           SkipData := True;
+         if (FOptions.ExcludeTables.IndexOf(SourceTables[i]) >= 0) then
+           SkipData := True;
+         if not SkipData then
+         begin
+           if FOptions.WithData then
+             CopyAllData(SourceTables[i])
+           else if FOptions.WithDataDiff then
+           begin
+             // Solo comparamos si la tabla existe en ambos lados, si es nueva
+             // ya se habría creado vacía, así que podríamos llenarla,
+             // pero WithDataDiff asume sincronización.
+             if TargetTables.IndexOf(SourceTables[i]) > -1 then
+               CompareData(SourceTables[i]);
+           end;
+         end;
+       end;
     end;
   finally
     SourceTables.Free;
@@ -323,6 +353,177 @@ begin
   end;
 end;
 
+// En uses añadir: Data.DB
+
+procedure TDBComparerEngine.CopyAllData(const TableName: string);
+var
+  SourceData: TDataSet;
+  Fields, Values: TStringList;
+  i: Integer;
+begin
+  FWriter.AddComment('Copiando datos completos: ' + TableName);
+  SourceData := FSourceDB.GetData(TableName);
+  Fields := TStringList.Create;
+  Values := TStringList.Create;
+  try
+    // Preparamos lista de campos una vez (asumiendo coincidencia por nombre)
+    // Nota: En una versión robusta, verificaríamos que campos existen en destino
+    // pero para CopyData asumimos estructura idéntica recién creada o validada.
+    while not SourceData.Eof do
+    begin
+      Fields.Clear;
+      Values.Clear;
+      for i := 0 to SourceData.FieldCount - 1 do
+      begin
+        Fields.Add(FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName));
+        Values.Add(FHelpers.ValueToSQL(SourceData.Fields[i]));
+      end;
+      // Usamos INSERT IGNORE o similar si fuera necesario, aquí INSERT estándar
+      FWriter.AddCommand(FHelpers.GenerateInsertSQL(TableName, Fields, Values));
+      SourceData.Next;
+    end;
+  finally
+    SourceData.Free; // El provider nos dio el dataset, pero somos dueños de liberarlo
+    Fields.Free;
+    Values.Free;
+  end;
+end;
+
+procedure TDBComparerEngine.CompareData(const TableName: string);
+var
+  SourceData, TargetData, TempSource: TDataSet; // TempSource añadido para deletes
+  PKCols: TStringList;
+  TableStruct: TTableInfo;
+  Col: TColumnInfo;
+  WhereClause, SetClause: string;
+  Fields, Values: TStringList;
+  i: Integer;
+  // IsEqual: Boolean; // BORRADO: No se usaba
+begin
+  // ... (Parte 1: Obtener PKs igual que antes) ...
+  TableStruct := FSourceDB.GetTableStructure(TableName);
+  PKCols := TStringList.Create;
+  try
+    for Col in TableStruct.Columns do
+      if SameText(Col.ColumnKey, 'PRI') then
+        PKCols.Add(Col.ColumnName);
+    if PKCols.Count = 0 then
+    begin
+      FWriter.AddComment('ADVERTENCIA: ' + TableName + ' no tiene PK. Se omite diff de datos.');
+      Exit;
+    end;
+    FWriter.AddComment('Sincronizando datos (INSERT/UPDATE): ' + TableName);
+    // -----------------------------------------------------------
+    // FASE A: Recorrer ORIGEN -> Buscar en DESTINO (Insert/Update)
+    // -----------------------------------------------------------
+    SourceData := FSourceDB.GetData(TableName);
+    Fields := TStringList.Create;
+    Values := TStringList.Create;
+    try
+      while not SourceData.Eof do
+      begin
+        WhereClause := BuildWhereClause(PKCols, SourceData);
+        TargetData := FTargetDB.GetData(TableName, WhereClause);
+        try
+          if TargetData.IsEmpty then
+          begin
+             // INSERT
+             Fields.Clear;
+             Values.Clear;
+             for i := 0 to SourceData.FieldCount - 1 do
+             begin
+               Fields.Add(FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName));
+               Values.Add(FHelpers.ValueToSQL(SourceData.Fields[i]));
+             end;
+             FWriter.AddComment('Insertar registro faltante (PK: ' + WhereClause + ')');
+             FWriter.AddCommand(FHelpers.GenerateInsertSQL(TableName, Fields, Values));
+          end
+          else
+          begin
+            // UPDATE
+            SetClause := '';
+            for i := 0 to SourceData.FieldCount - 1 do
+            begin
+              // Ignorar PKs
+              if PKCols.IndexOf(SourceData.Fields[i].FieldName) >= 0 then Continue;
+
+              if TargetData.FindField(SourceData.Fields[i].FieldName) <> nil then
+              begin
+                 if SourceData.Fields[i].AsString <> TargetData.FieldByName(SourceData.Fields[i].FieldName).AsString then
+                 begin
+                   if SetClause <> '' then SetClause := SetClause + ', ';
+                   SetClause := SetClause + FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName) +
+                                ' = ' + FHelpers.ValueToSQL(SourceData.Fields[i]);
+                 end;
+              end;
+            end;
+            if SetClause <> '' then
+            begin
+              FWriter.AddComment('Actualizar registro modificado (PK: ' + WhereClause + ')');
+              FWriter.AddCommand(FHelpers.GenerateUpdateSQL(TableName, SetClause, WhereClause));
+            end;
+          end;
+        finally
+          TargetData.Free;
+        end;
+        SourceData.Next;
+      end;
+    finally
+      SourceData.Free;
+      Fields.Free;
+      Values.Free;
+    end;
+    // -----------------------------------------------------------
+    // FASE B: Recorrer DESTINO -> Buscar en ORIGEN (Delete)
+    // -----------------------------------------------------------
+    if not FOptions.NoDelete then
+    begin
+      FWriter.AddComment('Verificando eliminaciones en: ' + TableName);
+      // Traemos tabla completa de destino (Optimización: Podría ser lento en tablas gigantes)
+      TargetData := FTargetDB.GetData(TableName);
+      try
+        while not TargetData.Eof do
+        begin
+          WhereClause := BuildWhereClause(PKCols, TargetData);
+          // Verificamos si existe en origen
+          TempSource := FSourceDB.GetData(TableName, WhereClause);
+          try
+            if TempSource.IsEmpty then
+            begin
+              FWriter.AddComment('Eliminar registro obsoleto (PK: ' + WhereClause + ')');
+              FWriter.AddCommand(FHelpers.GenerateDeleteSQL(TableName, WhereClause));
+            end;
+          finally
+            TempSource.Free;
+          end;
+          TargetData.Next;
+        end;
+      finally
+        TargetData.Free;
+      end;
+    end;
+  finally
+    TableStruct.Free;
+    PKCols.Free;
+  end;
+end;
+
+function TDBComparerEngine.BuildWhereClause(const PKCols: TStringList;
+                                            DataSet: TDataSet): string;
+var
+  i: Integer;
+  Field: TField;
+begin
+  Result := '';
+  for i := 0 to PKCols.Count - 1 do
+  begin
+    if i > 0 then Result := Result + ' AND ';
+    Field := DataSet.FieldByName(PKCols[i]);
+    Result := Result + FHelpers.QuoteIdentifier(PKCols[i]) + ' = ' +
+              FHelpers.ValueToSQL(Field);
+  end;
+end;
+
 procedure TDBComparerEngine.CompareProcedures;
 var
   SourceProcs: TStringList;
@@ -371,7 +572,7 @@ begin
         FWriter.AddComment('Eliminar índice: ' + TableName + '.' +
                           TargetIndexes[i].IndexName);
         FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
-                                                         TargetIndexes[i].IndexName));
+                                                   TargetIndexes[i].IndexName));
       end;
     end;
   end;
@@ -389,7 +590,7 @@ begin
         begin
           FWriter.AddComment('Modificar índice: ' + TableName + '.' +
                             SourceIndexes[i].IndexName);
-            FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
+          FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
                                                              SourceIndexes[i].IndexName));
           FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName,
                                                               SourceIndexes[i]));
