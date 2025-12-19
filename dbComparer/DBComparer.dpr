@@ -1,5 +1,5 @@
 ﻿program DBComparerConsole;
-
+{$APPTYPE CONSOLE}
 uses
   Uni,
   Core.Helpers in 'Core.Helpers.pas',
@@ -56,7 +56,7 @@ var
   SourceHelpers: IDBHelpers;
 begin
   try
-    if ParamCount < 4 then
+    if (ParamCount < 4) then
     begin
       ShowUsage;
       Exit;
