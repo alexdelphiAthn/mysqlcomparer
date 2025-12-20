@@ -55,7 +55,8 @@ type
     function GenerateDropView(const View:string):string;
     function GenerateDropTableSQL(const TableName:String): string;
     function GenerateInsertSQL(const TableName: string;
-                               Fields, Values: TStringList): string;
+                           Fields, Values: TStringList;
+                           const HasIdentity: Boolean = False): string;
     function GenerateUpdateSQL(const TableName: string;
                                const SetClause, WhereClause: string): string;
     function GenerateDeleteSQL(const TableName, WhereClause: string): string;

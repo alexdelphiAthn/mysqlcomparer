@@ -32,8 +32,9 @@ type
     function GenerateCreateProcedureSQL(const Body: string): string; override;
     function GenerateCreateFunctionSQL(const Body: string): string; override;
     function GenerateDeleteSQL(const TableName, WhereClause: string): string; override;
-    function GenerateInsertSQL(const TableName: string; Fields,
-                                                        Values: TStringList): string; override;
+    function GenerateInsertSQL(const TableName: string;
+                           Fields, Values: TStringList;
+                           const HasIdentity: Boolean = False): string; override;
 
   end;
 
@@ -53,7 +54,6 @@ function TMySQLHelpers.ValueToSQL(const Field: TField): string;
 begin
   if Field.IsNull then
     Exit('NULL');
-
   case Field.DataType of
     ftString, ftWideString, ftMemo, ftWideMemo, ftFmtMemo:
       Result := QuotedStr(Field.AsString);
@@ -69,9 +69,9 @@ begin
       Result := Field.AsString;
   end;
 end;
-
 function TMySQLHelpers.GenerateInsertSQL(const TableName: string;
-  Fields, Values: TStringList): string;
+                           Fields, Values: TStringList;
+                           const HasIdentity: Boolean = False): string;
 var
   i: Integer;
   FieldList, ValueList: string;

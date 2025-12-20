@@ -303,12 +303,10 @@ begin
       if SameText(SourceTriggers[i].TriggerName, TargetTriggers[j].TriggerName) then
       begin
         Found := True;
-
         // Si existen en ambos, comparamos su contenido usando el Helper
         if not FHelpers.TriggersAreEqual(SourceTriggers[i], TargetTriggers[j]) then
         begin
           FWriter.AddComment('Modificar trigger: ' + SourceTriggers[i].TriggerName);
-
           // Para modificar un trigger, generalmente se borra y se crea de nuevo
           FWriter.AddCommand(FHelpers.GenerateDropTrigger(
                                                 SourceTriggers[i].TriggerName));
@@ -323,7 +321,6 @@ begin
         Break;
       end;
     end;
-
     // Si no se encontró en destino, es NUEVO
     if not Found then
     begin
@@ -393,31 +390,46 @@ end;
 
 procedure TDBComparerEngine.CompareData(const TableName: string);
 var
-  SourceData, TargetData, TempSource: TDataSet; // TempSource añadido para deletes
+  SourceData, TargetData, TempSource: TDataSet;
   PKCols: TStringList;
   TableStruct: TTableInfo;
   Col: TColumnInfo;
   WhereClause, SetClause: string;
   Fields, Values: TStringList;
   i: Integer;
-  // IsEqual: Boolean; // BORRADO: No se usaba
+  HasIdentity: Boolean; // Variable para detectar autoincrementales
 begin
-  // ... (Parte 1: Obtener PKs igual que antes) ...
+  // 1. Obtener estructura para detectar PKs e IDENTIDAD
   TableStruct := FSourceDB.GetTableStructure(TableName);
   PKCols := TStringList.Create;
   try
+    HasIdentity := False;
+    // Analizar columnas
     for Col in TableStruct.Columns do
+    begin
+      // Detectar Primary Key
       if SameText(Col.ColumnKey, 'PRI') then
         PKCols.Add(Col.ColumnName);
+      // Detectar Identidad (SQL Server usa 'IDENTITY', MySQL usa 'auto_increment')
+      // Buscamos en 'Extra' que es donde suele venir esta info
+      if (Pos('IDENTITY', UpperCase(Col.Extra)) > 0) or
+         (Pos('AUTO_INCREMENT', UpperCase(Col.Extra)) > 0) then
+      begin
+        HasIdentity := True;
+      end;
+    end;
+    // Si no hay PK, no podemos comparar datos de forma segura
     if PKCols.Count = 0 then
     begin
-      FWriter.AddComment('ADVERTENCIA: ' + TableName + ' no tiene PK. Se omite diff de datos.');
+      FWriter.AddComment('ADVERTENCIA: ' + TableName + ' no tiene PK. Se omite sincronización de datos.');
       Exit;
     end;
-    FWriter.AddComment('Sincronizando datos (INSERT/UPDATE): ' + TableName);
-    // -----------------------------------------------------------
-    // FASE A: Recorrer ORIGEN -> Buscar en DESTINO (Insert/Update)
-    // -----------------------------------------------------------
+    FWriter.AddComment('Sincronizando datos: ' + TableName +
+                       (IfThen(HasIdentity, ' (Con Identidad)', '')));
+
+    // =========================================================================
+    // FASE A: Recorrer ORIGEN -> Insertar o Actualizar en DESTINO
+    // =========================================================================
     SourceData := FSourceDB.GetData(TableName);
     Fields := TStringList.Create;
     Values := TStringList.Create;
@@ -425,11 +437,12 @@ begin
       while not SourceData.Eof do
       begin
         WhereClause := BuildWhereClause(PKCols, SourceData);
+        // Buscamos el registro en destino
         TargetData := FTargetDB.GetData(TableName, WhereClause);
         try
           if TargetData.IsEmpty then
           begin
-             // INSERT
+             // --- CASO 1: INSERT (Registro nuevo) ---
              Fields.Clear;
              Values.Clear;
              for i := 0 to SourceData.FieldCount - 1 do
@@ -437,31 +450,37 @@ begin
                Fields.Add(FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName));
                Values.Add(FHelpers.ValueToSQL(SourceData.Fields[i]));
              end;
-             FWriter.AddComment('Insertar registro faltante (PK: ' + WhereClause + ')');
-             FWriter.AddCommand(FHelpers.GenerateInsertSQL(TableName, Fields, Values));
+             FWriter.AddComment('Insertar registro nuevo (PK: ' + WhereClause + ')');
+
+             // Pasamos 'HasIdentity' para que el Helper de SQL Server sepa si debe
+             // envolver el INSERT con SET IDENTITY_INSERT ON/OFF
+             FWriter.AddCommand(FHelpers.GenerateInsertSQL(TableName, Fields, Values, HasIdentity));
           end
           else
           begin
-            // UPDATE
+            // --- CASO 2: UPDATE (Registro existe, verificamos cambios) ---
             SetClause := '';
             for i := 0 to SourceData.FieldCount - 1 do
             begin
-              // Ignorar PKs
+              // Saltamos la PK (no se actualiza)
               if PKCols.IndexOf(SourceData.Fields[i].FieldName) >= 0 then Continue;
-
+              // Verificamos si el campo existe en destino y si el valor es diferente
               if TargetData.FindField(SourceData.Fields[i].FieldName) <> nil then
               begin
-                 if SourceData.Fields[i].AsString <> TargetData.FieldByName(SourceData.Fields[i].FieldName).AsString then
+                 // Comparación simple de cadenas (ValueToSQL normaliza formatos)
+                 if FHelpers.ValueToSQL(SourceData.Fields[i]) <>
+                    FHelpers.ValueToSQL(TargetData.FieldByName(SourceData.Fields[i].FieldName)) then
                  begin
                    if SetClause <> '' then SetClause := SetClause + ', ';
-                   SetClause := SetClause + FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName) +
+                   SetClause := SetClause +
+                                FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName) +
                                 ' = ' + FHelpers.ValueToSQL(SourceData.Fields[i]);
                  end;
               end;
             end;
             if SetClause <> '' then
             begin
-              FWriter.AddComment('Actualizar registro modificado (PK: ' + WhereClause + ')');
+              FWriter.AddComment('Actualizar diferencias (PK: ' + WhereClause + ')');
               FWriter.AddCommand(FHelpers.GenerateUpdateSQL(TableName, SetClause, WhereClause));
             end;
           end;
@@ -469,29 +488,30 @@ begin
           TargetData.Free;
         end;
         SourceData.Next;
-      end;
+      end; // Fin while Source
     finally
       SourceData.Free;
       Fields.Free;
       Values.Free;
     end;
-    // -----------------------------------------------------------
-    // FASE B: Recorrer DESTINO -> Buscar en ORIGEN (Delete)
-    // -----------------------------------------------------------
+    // =========================================================================
+    // FASE B: Recorrer DESTINO -> Eliminar lo que sobre (Si --nodelete no está activo)
+    // =========================================================================
     if not FOptions.NoDelete then
     begin
-      FWriter.AddComment('Verificando eliminaciones en: ' + TableName);
-      // Traemos tabla completa de destino (Optimización: Podría ser lento en tablas gigantes)
+      // Traemos toda la tabla de destino para ver qué sobra
       TargetData := FTargetDB.GetData(TableName);
       try
         while not TargetData.Eof do
         begin
           WhereClause := BuildWhereClause(PKCols, TargetData);
-          // Verificamos si existe en origen
+
+          // Verificamos si este registro de destino existe en origen
           TempSource := FSourceDB.GetData(TableName, WhereClause);
           try
             if TempSource.IsEmpty then
             begin
+              // --- CASO 3: DELETE (Sobra en destino) ---
               FWriter.AddComment('Eliminar registro obsoleto (PK: ' + WhereClause + ')');
               FWriter.AddCommand(FHelpers.GenerateDeleteSQL(TableName, WhereClause));
             end;
@@ -504,6 +524,7 @@ begin
         TargetData.Free;
       end;
     end;
+
   finally
     TableStruct.Free;
     PKCols.Free;

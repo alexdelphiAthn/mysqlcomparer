@@ -1,4 +1,4 @@
-unit Providers.SQLServer.Helpers;
+﻿unit Providers.SQLServer.Helpers;
 
 interface
 uses Core.Helpers, Core.Types, System.SysUtils, System.StrUtils,
@@ -32,8 +32,9 @@ type
     function GenerateCreateProcedureSQL(const Body: string): string; override;
     function GenerateCreateFunctionSQL(const Body: string): string; override;
     function GenerateDeleteSQL(const TableName, WhereClause: string): string; override;
-    function GenerateInsertSQL(const TableName: string; Fields,
-                                                        Values: TStringList): string; override;
+    function GenerateInsertSQL(const TableName: string;
+                           Fields, Values: TStringList;
+                           const HasIdentity: Boolean = False): string; override;// Nuevo parámetro
   end;
 
 implementation
@@ -55,11 +56,13 @@ begin
     ftString, ftWideString, ftMemo, ftWideMemo, ftFmtMemo:
       Result := 'N' + QuotedStr(StringReplace(Field.AsString, '''', '''''', [rfReplaceAll]));
     ftDate:
-      Result := QuotedStr(FormatDateTime('yyyy-mm-dd', Field.AsDateTime));
+      // ISO 8601 compact format 'YYYYMMDD' is safest for dates
+      Result := QuotedStr(FormatDateTime('yyyymmdd', Field.AsDateTime));
+    ftDateTime, ftTimeStamp:
+      // ISO 8601 combined format
+      Result := QuotedStr(FormatDateTime('yyyy-mm-ddThh:nn:ss.zzz', Field.AsDateTime));
     ftTime:
       Result := QuotedStr(FormatDateTime('hh:nn:ss', Field.AsDateTime));
-    ftDateTime, ftTimeStamp:
-      Result := QuotedStr(FormatDateTime('yyyy-mm-dd hh:nn:ss.zzz', Field.AsDateTime));
     ftBoolean:
       Result := IntToStr(Ord(Field.AsBoolean));
     ftBlob, ftGraphic, ftVarBytes, ftBytes:
@@ -70,10 +73,12 @@ begin
 end;
 
 function TSQLServerHelpers.GenerateInsertSQL(const TableName: string;
-  Fields, Values: TStringList): string;
+                           Fields, Values: TStringList;
+                           const HasIdentity: Boolean = False): string; // Nuevo parámetro
 var
   i: Integer;
   FieldList, ValueList: string;
+  SQLInsert:string;
 begin
   FieldList := '';
   ValueList := '';
@@ -87,8 +92,18 @@ begin
     if i > 0 then ValueList := ValueList + ', ';
     ValueList := ValueList + Values[i];
   end;
-  Result := 'INSERT INTO ' + QuoteIdentifier(TableName) + ' (' +
+  SQLInsert := 'INSERT INTO ' + QuoteIdentifier(TableName) + ' (' +
             FieldList + ') VALUES (' + ValueList + ');';
+  if HasIdentity then
+  begin
+    Result := 'SET IDENTITY_INSERT ' + QuoteIdentifier(TableName) + ' ON;' + sLineBreak +
+              SqlInsert + sLineBreak +
+              'SET IDENTITY_INSERT ' + QuoteIdentifier(TableName) + ' OFF;';
+  end
+  else
+  begin
+    Result := SqlInsert;
+  end;
 end;
 
 function TSQLServerHelpers.GenerateUpdateSQL(const TableName: string;
