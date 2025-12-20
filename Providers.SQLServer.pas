@@ -1,10 +1,10 @@
-unit Providers.SQLServer;
+﻿unit Providers.SQLServer;
 
 interface
 
 uses
   System.Classes, System.SysUtils, Data.DB, Core.Interfaces, Core.Types, Uni,
-  MSSQLUniProvider, System.StrUtils, System.Generics.Collections,
+  SQLServerUniProvider, System.StrUtils, System.Generics.Collections,
   Providers.SQLServer.Helpers, Core.Helpers;
 
 type

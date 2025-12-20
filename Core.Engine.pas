@@ -3,7 +3,7 @@
 interface
 
 uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers,
-     Generics.Collections, Providers.MySQL.Helpers, Data.DB;
+     Generics.Collections, Providers.MySQL.Helpers, Data.DB, System.StrUtils;
 
 type
   TDBComparerEngine = class

@@ -3,7 +3,7 @@
         <ProjectGuid>{C4C0FB20-D75A-40B7-BDA8-2433A75D91DC}</ProjectGuid>
         <MainSource>DBComparerSQLServer.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Console</AppType>
         <FrameworkType>None</FrameworkType>
