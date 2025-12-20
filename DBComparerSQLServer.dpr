@@ -59,6 +59,10 @@ var
   Options: TComparerOptions;
   SourceHelpers: IDBHelpers;
 begin
+  SourceConn := nil;
+  TargetConn := nil;
+  Options := nil;
+  Engine := nil;
   try
     if (ParamCount < 4) then
     begin

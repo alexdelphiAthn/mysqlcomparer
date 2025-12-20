@@ -28,7 +28,7 @@ type
     function GenerateDropProcedure(const Proc:string):string; override;
     function GenerateDropFunction(const FuncName: string): string; override;
     function GenerateDropView(const View:string):string; override;
-    function ValueToSQL(const Field: TField): string;
+    function ValueToSQL(const Field: TField): string; override;
     function GenerateCreateProcedureSQL(const Body: string): string; override;
     function GenerateCreateFunctionSQL(const Body: string): string; override;
     function GenerateDeleteSQL(const TableName, WhereClause: string): string; override;
