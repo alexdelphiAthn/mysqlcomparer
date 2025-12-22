@@ -68,6 +68,26 @@ type
     class var MsgHeaderSequences:string;
     class var MsgSeqCreate: string;
     class var MsgSeqDrop: string;
+    // Específicos de Oracle
+    class var UsageOracleCmd: string;      // El ejemplo de comando principal
+    class var UsageOracleOwner: string;    // Nota sobre owner
+    class var UsageOracleTNS: string;      // Nota sobre TNS
+    class var HeaderConnFormats: string;   // Cabecera "Formatos de conexión"
+
+    // Líneas de formatos de conexión (Descripción + Ejemplo)
+    class var FmtOracleDirect: string;
+    class var FmtOracleTNS: string;
+    class var FmtOracleDefPort: string;
+
+    // Notas específicas SQL Server
+    class var MsgSQLDefInstance: string;
+    class var MsgSQLWinAuth: string;
+
+    // Ejemplos específicos SQL Server (Format Strings)
+    class var ExSQLNamedInst: string; // Ejemplo SQLEXPRESS
+    class var ExSQLStd: string;       // Ejemplo Estándar
+    class var ExSQLWinAuth: string;   // Ejemplo Windows Auth
+    class var ExSQLFilter: string;    // Ejemplo Include Tables
   end;
 
 implementation
@@ -146,6 +166,34 @@ begin
     TRes.MsgHeaderSequences:= '=== SECUENCIAS / GENERADORES ===';
     TRes.MsgSeqCreate := 'Crear secuencia faltante: ';
     TRes.MsgSeqDrop   := 'Eliminar secuencia obsoleta: ';
+    // ORACLE - ESPAÑOL
+    TRes.UsageOracleCmd := '  %s servidor1:puerto1/sid1 usuario1/password1 ' +
+                           'servidor2:puerto2/sid2 usuario2/password2 [opciones]';
+
+    TRes.UsageOracleOwner := '      Para especificar owner/schema: usuario/password@owner';
+    TRes.UsageOracleTNS   := '      Para TNS: //tnsname usuario/password';
+
+    TRes.HeaderConnFormats := 'Formatos de conexión:';
+
+    // Mantenemos el espaciado para que se alinee bonito en consola
+    TRes.FmtOracleDirect  := '  servidor:puerto/sid        Conexión directa (ej: localhost:1521/ORCL)';
+    TRes.FmtOracleTNS     := '  //tnsname                  Usando TNS Names (ej: //PROD_DB)';
+    TRes.FmtOracleDefPort := '  servidor/sid               Puerto por defecto 1521';
+
+    TRes.MsgSQLDefInstance := 'Nota: Para instancia por defecto, usar solo servidor\database';
+    TRes.MsgSQLWinAuth     := '      Para autenticación Windows, usar usuario: (vacío) o "Windows"';
+
+    // Ejemplos (Con nombres en español)
+    TRes.ExSQLNamedInst := '  %s localhost\SQLEXPRESS\midb_prod sa\pass123 ' +
+                           'localhost\SQLEXPRESS\midb_dev sa\pass456 --nodelete --with-triggers';
+
+    TRes.ExSQLStd       := '  %s servidor1\midb usuario\pass ' +
+                           'servidor2\midb usuario\pass --with-data-diff --nodelete';
+
+    TRes.ExSQLWinAuth   := '  %s localhost\midb Windows\ ' +
+                           'localhost\midb_test Windows\ --with-data-diff';
+
+    TRes.ExSQLFilter    := '  %s ... --with-data-diff --include-tables=Clientes,Productos';
   end
   else
   begin
@@ -204,6 +252,33 @@ begin
     TRes.MsgHeaderSequences := '=== SEQUENCES / GENERATORS ===';
     TRes.MsgSeqCreate := 'Create missing sequence: ';
     TRes.MsgSeqDrop   := 'Drop obsolete sequence: ';
+    // ORACLE - ENGLISH
+    TRes.UsageOracleCmd := '  %s server1:port1/sid1 user1/password1 ' +
+                           'server2:port2/sid2 user2/password2 [options]';
+
+    TRes.UsageOracleOwner := '      To specify owner/schema: user/password@owner';
+    TRes.UsageOracleTNS   := '      For TNS: //tnsname user/password';
+
+    TRes.HeaderConnFormats := 'Connection formats:';
+
+    TRes.FmtOracleDirect  := '  server:port/sid            Direct connection (ex: localhost:1521/ORCL)';
+    TRes.FmtOracleTNS     := '  //tnsname                  Using TNS Names (ex: //PROD_DB)';
+    TRes.FmtOracleDefPort := '  server/sid                 Default port 1521';
+
+    TRes.MsgSQLDefInstance := 'Note: For default instance, use only server\database';
+    TRes.MsgSQLWinAuth     := '      For Windows Authentication, use user: (empty) or "Windows"';
+
+    // Ejemplos (Con nombres en inglés para mayor coherencia)
+    TRes.ExSQLNamedInst := '  %s localhost\SQLEXPRESS\midb_prod sa\pass123 ' +
+                           'localhost\SQLEXPRESS\midb_dev sa\pass456 --nodelete --with-triggers';
+
+    TRes.ExSQLStd       := '  %s server1\midb user\pass ' +
+                           'server2\midb user\pass --with-data-diff --nodelete';
+
+    TRes.ExSQLWinAuth   := '  %s localhost\midb Windows\ ' +
+                           'localhost\midb_test Windows\ --with-data-diff';
+
+    TRes.ExSQLFilter    := '  %s ... --with-data-diff --include-tables=Customers,Products';
   end;
 end;
 

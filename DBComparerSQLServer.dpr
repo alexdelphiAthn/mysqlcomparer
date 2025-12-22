@@ -9,42 +9,39 @@ uses
   Providers.SQLServer in 'Providers.SQLServer.pas',
   ScriptWriters in 'ScriptWriters.pas',
   Providers.SQLServer.Helpers in 'Providers.SQLServer.Helpers.pas',
-  System.SysUtils;
+  System.SysUtils,
+  Core.Resources in 'Core.Resources.pas';
 
 procedure ShowUsage;
 begin
-  Writeln('Uso:');
-  Writeln('  DBComparerSQLServer servidor1\instancia1\database1 usuario1\password1 '+
-          'servidor2\instancia2\database2 usuario2\password2 [opciones]');
+  Writeln(TRes.UsageHeader);
+  Writeln(Format(TRes.UsageExampleCmd, ['DBComparerSQLServer']));
   Writeln('');
-  Writeln('Nota: Para instancia por defecto, usar solo servidor\database');
-  Writeln('      Para autenticación Windows, usar usuario: (vacío) o "Windows"');
+  Writeln(TRes.MsgSQLDefInstance);
+  Writeln(TRes.MsgSQLWinAuth);
   Writeln('');
-  Writeln('Opciones:');
-  Writeln('  --nodelete           No elimina tablas, columnas ni índices en destino');
-  Writeln('  --with-triggers      Incluye comparación de triggers');
-  Writeln('  --with-data          Copia todos los datos de origen a destino (INSERT)');
-  Writeln('  --with-data-diff     Sincroniza datos comparando por clave primaria');
-  Writeln('                       (INSERT nuevos, UPDATE modificados, DELETE si no --nodelete)');
-  Writeln('  --exclude-tables=T1,T2...  Excluye tablas específicas de la sincronización de datos');
-  Writeln('                             (Lista Negra: Sincroniza todo MENOS esto)');
-  Writeln('  --include-tables=T1,T2...  Solo sincroniza datos de estas tablas');
-  Writeln('                             (Lista Blanca: Solo sincroniza ESTO, ignora el resto)');
+  Writeln(TRes.OptionsHeader);
+  Writeln('  --nodelete           ' + TRes.OptNoDelete);
+  Writeln('  --with-triggers      ' + TRes.OptTriggers);
+  Writeln('  --with-data          ' + TRes.OptWithData);
+  Writeln('  --with-data-diff     ' + TRes.OptDataDiff);
+  Writeln('  --exclude-tables=T1,T2... ' + TRes.OptExclude);
+  Writeln('                            ' + TRes.OptExcludeDesc);
+  Writeln('  --include-tables=T1,T2...  '+ TRes.OptInclude);
+  Writeln('                             '+ TRes.OptIncludeDesc);
   Writeln('');
-  Writeln('Ejemplos:');
-  Writeln('  DBComparerSQLServer localhost\SQLEXPRESS\midb_prod sa\pass123 '+
-          'localhost\SQLEXPRESS\midb_dev sa\pass456 --nodelete --with-triggers');
+  Writeln(TRes.ExamplesHeader);
+// Ejemplos específicos SQL Server
+  Writeln(TRes.ExamplesHeader); // "Ejemplos:"
+  Writeln(Format(TRes.ExSQLNamedInst, ['DBComparerSQLServer']));
   Writeln('');
-  Writeln('  DBComparerSQLServer servidor1\midb usuario\pass '+
-          'servidor2\midb usuario\pass --with-data-diff --nodelete');
+  Writeln(Format(TRes.ExSQLStd, ['DBComparerSQLServer']));
   Writeln('');
-  Writeln('  DBComparerSQLServer localhost\midb Windows\ '+
-          'localhost\midb_test Windows\ --with-data-diff');
+  Writeln(Format(TRes.ExSQLWinAuth, ['DBComparerSQLServer']));
   Writeln('');
-  Writeln('  DBComparerSQLServer ... --with-data-diff --include-tables=Clientes,Productos');
+  Writeln(Format(TRes.ExSQLFilter, ['DBComparerSQLServer']));
   Writeln('');
-  Writeln('El resultado se imprime por la salida estándar. '+
-          'Para guardarlo en archivo:');
+  Writeln(TRes.FooterFile);
   Writeln('  DBComparerSQLServer ... > script.sql');
   Writeln('');
   Halt(1);
