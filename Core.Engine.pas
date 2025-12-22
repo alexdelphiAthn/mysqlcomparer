@@ -2,7 +2,7 @@
 
 interface
 
-uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers,
+uses Core.Interfaces, Core.Types, System.Classes, Core.Helpers, Core.Resources,
      Generics.Collections, Providers.MySQL.Helpers, Data.DB, System.StrUtils;
 
 type
@@ -63,16 +63,16 @@ begin
     SourceSeqs.CaseSensitive := False;
     TargetSeqs.CaseSensitive := False;
     if (SourceSeqs.Count > 0) or ((TargetSeqs.Count > 0) and not FOptions.NoDelete) then
-      FWriter.AddComment('=== SECUENCIAS / GENERADORES ===');
+      FWriter.AddComment(TRes.MsgHeaderSequences);
     // 1. CREAR: Existe en Origen, pero NO en Destino
     for i := 0 to SourceSeqs.Count - 1 do
     begin
       if TargetSeqs.IndexOf(SourceSeqs[i]) = -1 then
       begin
-        FWriter.AddComment('Crear secuencia faltante: ' + SourceSeqs[i]);
+        FWriter.AddComment(TRes.MsgSeqCreate + SourceSeqs[i]);
         FWriter.AddCommand(FHelpers.GenerateCreateSequence(SourceSeqs[i]));
       end;
-      // NOTA: Si ya existe, NO la tocamos. 
+      // NOTA: Si ya existe, NO la tocamos.
       // Recrearla reiniciaría el contador a 1, lo cual es peligroso en producción.
     end;
     // 2. BORRAR: Existe en Destino, pero NO en Origen (si --nodelete no está activo)
@@ -82,7 +82,7 @@ begin
       begin
         if SourceSeqs.IndexOf(TargetSeqs[i]) = -1 then
         begin
-          FWriter.AddComment('Eliminar secuencia obsoleta: ' + TargetSeqs[i]);
+          FWriter.AddComment(TRes.MsgSeqDrop + TargetSeqs[i]);
           FWriter.AddCommand(FHelpers.GenerateDropSequence(TargetSeqs[i]));
         end;
       end;
@@ -102,7 +102,7 @@ var
   PKList: TStringList;
   ColDef: string;
 begin
-  FWriter.AddComment('Tabla nueva: ' + TableName);
+  FWriter.AddComment(TRes.MsgNewTable + TableName);
   Table := FSourceDB.GetTableStructure(TableName);
   PKList := TStringList.Create;
   try
@@ -131,7 +131,7 @@ begin
     begin
       if not Idx.IsPrimary then
       begin
-        FWriter.AddComment('Agregar índice: ' + TableName + '.' + Idx.IndexName);
+        FWriter.AddComment(TRes.MsgAddIndex  + TableName + '.' + Idx.IndexName);
         FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName, Idx));
       end;
     end;
@@ -144,8 +144,7 @@ end;
 procedure TDBComparerEngine.GenerateScript;
 begin
   FWriter.AddComment('========================================');
-  FWriter.AddComment('SCRIPT DE SINCRONIZACIÓN');
-  FWriter.AddComment('Generado: ' + DateTimeToStr(Now));
+  FWriter.AddComment(Format(TRes.GeneratedHeader, [DateTimeToStr(Now)]));
   FWriter.AddComment('========================================');
   FWriter.AddCommand('');
   CompareTables;
@@ -171,7 +170,7 @@ begin
       begin
         if SourceTables.IndexOf(TargetTables[i]) = -1 then
         begin
-          FWriter.AddComment('Tabla eliminada: ' + TargetTables[i]);
+          FWriter.AddComment(TRes.MsgTableDeleted + TargetTables[i]);
           FWriter.AddCommand(FHelpers.GenerateDropTableSQL(TargetTables[i]));
         end;
       end;
@@ -253,7 +252,7 @@ begin
       if FoundIdx = -1 then
       begin
         // CASO A: La columna no existe en Destino -> CREAR
-        FWriter.AddComment('Agregar columna: ' + TableName + '.' +
+        FWriter.AddComment(TRes.MsgAddColumn + TableName + '.' +
                            Col1.ColumnName);
         // El Helper se encarga del dialecto SQL (ADD COLUMN vs ADD ...)
         FWriter.AddCommand(FHelpers.GenerateAddColumnSQL(TableName, Col1));
@@ -265,7 +264,7 @@ begin
         // Usamos la lógica universal del Helper abstracto
         if not FHelpers.ColumnsAreEqual(Col1, Col2) then
         begin
-          FWriter.AddComment('Modificar columna: ' + TableName + '.' +
+          FWriter.AddComment(TRes.MsgModColumn + TableName + '.' +
                               Col1.ColumnName);
           FWriter.AddCommand(FHelpers.GenerateModifyColumnSQL(TableName, Col1));
         end;
@@ -283,7 +282,7 @@ begin
         if FoundIdx = -1 then
         begin
           // CASO C: La columna sobra en destino -> BORRAR
-          FWriter.AddComment('Eliminar columna: ' + TableName + '.' +
+          FWriter.AddComment(TRes.MsgDelColumn + TableName + '.' +
                              Col2.ColumnName);
           // El Helper sabe cómo borrar (DROP COLUMN)
           FWriter.AddCommand(FHelpers.GenerateDropColumnSQL(TableName,
@@ -311,9 +310,7 @@ begin
   // Obtener los arrays de triggers (Records)
   SourceTriggers := FSourceDB.GetTriggers;
   TargetTriggers := FTargetDB.GetTriggers;
-  FWriter.AddComment('========================================');
-  FWriter.AddComment('TRIGGERS');
-  FWriter.AddComment('========================================');
+  FWriter.AddComment(TRes.MsgHeaderTrig);
   FWriter.AddCommand('');
   // 1. TRIGGERS ELIMINADOS (Existen en Destino, pero no en Origen)
   if not FOptions.NoDelete then
@@ -332,7 +329,7 @@ begin
       end;
       if not Found then
       begin
-        FWriter.AddComment('Eliminar trigger: ' + TargetTriggers[i].TriggerName);
+        FWriter.AddComment(TRes.MsgTriggerDel + TargetTriggers[i].TriggerName);
         FWriter.AddCommand(FHelpers.GenerateDropTrigger(TargetTriggers[i].TriggerName));
       end;
     end;
@@ -350,7 +347,7 @@ begin
         // Si existen en ambos, comparamos su contenido usando el Helper
         if not FHelpers.TriggersAreEqual(SourceTriggers[i], TargetTriggers[j]) then
         begin
-          FWriter.AddComment('Modificar trigger: ' + SourceTriggers[i].TriggerName);
+          FWriter.AddComment(TRes.MsgTriggerMod + SourceTriggers[i].TriggerName);
           // Para modificar un trigger, generalmente se borra y se crea de nuevo
           FWriter.AddCommand(FHelpers.GenerateDropTrigger(
                                                 SourceTriggers[i].TriggerName));
@@ -368,7 +365,7 @@ begin
     // Si no se encontró en destino, es NUEVO
     if not Found then
     begin
-      FWriter.AddComment('Crear trigger: ' + SourceTriggers[i].TriggerName);
+      FWriter.AddComment(TRes.MsgTriggerNew + SourceTriggers[i].TriggerName);
       TriggerDef := FSourceDB.GetTriggerDefinition(
                                                  SourceTriggers[i].TriggerName);
       FWriter.AddCommand(TriggerDef);
@@ -383,10 +380,10 @@ var
 begin
   SourceViews := FSourceDB.GetViews;
   try
-    FWriter.AddComment('=== VISTAS ===');
+    FWriter.AddComment(TRes.MsgHeaderViews);
     for i := 0 to SourceViews.Count - 1 do
     begin
-      FWriter.AddComment('Recreando vista: ' + SourceViews[i]);
+      FWriter.AddComment(TRes.MsgRecreateView + SourceViews[i]);
       // MySQL suele requerir DROP antes de create si cambia la definición
       FWriter.AddCommand(FHelpers.GenerateDropView(SourceViews[i]));
       FWriter.AddCommand(FSourceDB.GetViewDefinition(SourceViews[i]));
@@ -404,7 +401,7 @@ var
   Fields, Values: TStringList;
   i: Integer;
 begin
-  FWriter.AddComment('Copiando datos completos: ' + TableName);
+  FWriter.AddComment(TRes.MsgCopyAllData + TableName);
   SourceData := FSourceDB.GetData(TableName);
   Fields := TStringList.Create;
   Values := TStringList.Create;
@@ -465,12 +462,11 @@ begin
     // Si no hay PK, no podemos comparar datos de forma segura
     if PKCols.Count = 0 then
     begin
-      FWriter.AddComment('ADVERTENCIA: ' + TableName + ' no tiene PK. Se omite sincronización de datos.');
+      FWriter.AddComment(Format(TRes.MsgWarnNoPK, [TableName]));
       Exit;
     end;
-    FWriter.AddComment('Sincronizando datos: ' + TableName +
-                       (IfThen(HasIdentity, ' (Con Identidad)', '')));
-
+    FWriter.AddComment(TRes.MsgSyncData  + TableName +
+                       (IfThen(HasIdentity, TRes.MsgWithIdentity, '')));
     // =========================================================================
     // FASE A: Recorrer ORIGEN -> Insertar o Actualizar en DESTINO
     // =========================================================================
@@ -494,8 +490,7 @@ begin
                Fields.Add(FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName));
                Values.Add(FHelpers.ValueToSQL(SourceData.Fields[i]));
              end;
-             FWriter.AddComment('Insertar registro nuevo (PK: ' + WhereClause + ')');
-
+             FWriter.AddComment(Format(TRes.MsgInsertNew,[WhereClause]));
              // Pasamos 'HasIdentity' para que el Helper de SQL Server sepa si debe
              // envolver el INSERT con SET IDENTITY_INSERT ON/OFF
              FWriter.AddCommand(FHelpers.GenerateInsertSQL(TableName, Fields, Values, HasIdentity));
@@ -507,15 +502,17 @@ begin
             for i := 0 to SourceData.FieldCount - 1 do
             begin
               // Saltamos la PK (no se actualiza)
-              if PKCols.IndexOf(SourceData.Fields[i].FieldName) >= 0 then Continue;
+              if (PKCols.IndexOf(SourceData.Fields[i].FieldName) >= 0) then
+                Continue;
               // Verificamos si el campo existe en destino y si el valor es diferente
-              if TargetData.FindField(SourceData.Fields[i].FieldName) <> nil then
+              if (TargetData.FindField(SourceData.Fields[i].FieldName) <> nil) then
               begin
                  // Comparación simple de cadenas (ValueToSQL normaliza formatos)
                  if FHelpers.ValueToSQL(SourceData.Fields[i]) <>
                     FHelpers.ValueToSQL(TargetData.FieldByName(SourceData.Fields[i].FieldName)) then
                  begin
-                   if SetClause <> '' then SetClause := SetClause + ', ';
+                   if (SetClause <> '') then
+                     SetClause := SetClause + ', ';
                    SetClause := SetClause +
                                 FHelpers.QuoteIdentifier(SourceData.Fields[i].FieldName) +
                                 ' = ' + FHelpers.ValueToSQL(SourceData.Fields[i]);
@@ -524,7 +521,7 @@ begin
             end;
             if SetClause <> '' then
             begin
-              FWriter.AddComment('Actualizar diferencias (PK: ' + WhereClause + ')');
+              FWriter.AddComment(Format(TRes.MsgUpdateDiff, [WhereClause]));
               FWriter.AddCommand(FHelpers.GenerateUpdateSQL(TableName, SetClause, WhereClause));
             end;
           end;
@@ -549,14 +546,13 @@ begin
         while not TargetData.Eof do
         begin
           WhereClause := BuildWhereClause(PKCols, TargetData);
-
           // Verificamos si este registro de destino existe en origen
           TempSource := FSourceDB.GetData(TableName, WhereClause);
           try
             if TempSource.IsEmpty then
             begin
               // --- CASO 3: DELETE (Sobra en destino) ---
-              FWriter.AddComment('Eliminar registro obsoleto (PK: ' + WhereClause + ')');
+              FWriter.AddComment(Format(TRes.MsgDeleteObs, [WhereClause]));
               FWriter.AddCommand(FHelpers.GenerateDeleteSQL(TableName, WhereClause));
             end;
           finally
@@ -568,7 +564,6 @@ begin
         TargetData.Free;
       end;
     end;
-
   finally
     TableStruct.Free;
     PKCols.Free;
@@ -598,10 +593,10 @@ var
 begin
   SourceProcs := FSourceDB.GetProcedures;
   try
-    FWriter.AddComment('=== PROCEDIMIENTOS ===');
+    FWriter.AddComment(TRes.MsgHeaderProcs);
     for i := 0 to SourceProcs.Count - 1 do
     begin
-      FWriter.AddComment('Recreando procedimiento: ' + SourceProcs[i]);
+      FWriter.AddComment(TRes.MsgRecreateProc + SourceProcs[i]);
       FWriter.AddCommand(FHelpers.GenerateDropProcedure(SourceProcs[i]));
       var strProc := FSourceDB.GetProcedureDefinition(SourceProcs[i]);
       FWriter.AddCommand(FHelpers.GenerateCreateProcedureSQL(strProc));
@@ -618,10 +613,10 @@ var
 begin
   SourceFuncs := FSourceDB.GetFunctions;
   try
-    FWriter.AddComment('=== FUNCIONES ===');
+    FWriter.AddComment(TRes.MsgHeaderFunc);
     for i := 0 to SourceFuncs.Count - 1 do
     begin
-      FWriter.AddComment('Recreando función: ' + SourceFuncs[i]);
+      FWriter.AddComment(TRes.MsgRecreateFunc + SourceFuncs[i]);
       // Borrar y crear
       FWriter.AddCommand(FHelpers.GenerateDropFunction(SourceFuncs[i]));
       var strFunc := FSourceDB.GetFunctionDefinition(SourceFuncs[i]);
@@ -658,7 +653,7 @@ begin
       end;
       if not Found then
       begin
-        FWriter.AddComment('Eliminar índice: ' + TableName + '.' +
+        FWriter.AddComment(TRes.MsgDelIndex + TableName + '.' +
                           TargetIndexes[i].IndexName);
         FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
                                                    TargetIndexes[i].IndexName));
@@ -677,7 +672,7 @@ begin
         // Si son diferentes, recrear
         if not FHelpers.IndexesAreEqual(SourceIndexes[i], TargetIndexes[j]) then
         begin
-          FWriter.AddComment('Modificar índice: ' + TableName + '.' +
+          FWriter.AddComment(TRes.MsgModIndex + TableName + '.' +
                             SourceIndexes[i].IndexName);
           FWriter.AddCommand(FHelpers.GenerateDropIndexSQL(TableName,
                                                              SourceIndexes[i].IndexName));
@@ -690,7 +685,7 @@ begin
     // Índice nuevo
     if not Found then
     begin
-      FWriter.AddComment('Agregar índice: ' + TableName + '.' +
+      FWriter.AddComment(TRes.MsgAddIndex + TableName + '.' +
                         SourceIndexes[i].IndexName);
       FWriter.AddCommand(FHelpers.GenerateIndexDefinition(TableName,
                                                           SourceIndexes[i]));
