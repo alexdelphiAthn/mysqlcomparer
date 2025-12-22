@@ -10,35 +10,40 @@ uses
   ScriptWriters in 'ScriptWriters.pas',
   Providers.Oracle.Helpers in 'Providers.Oracle.Helpers.pas',
   System.SysUtils,
-  system.StrUtils;
+  system.StrUtils,
+  Core.Resources in 'Core.Resources.pas';
 
 procedure ShowUsage;
 begin
-  Writeln('Uso:');
+  Writeln(TRes.UsageHeader);
   Writeln('  DBComparerOracle servidor1:puerto1/sid1 usuario1/password1 '+
           'servidor2:puerto2/sid2 usuario2/password2 [opciones]');
   Writeln('');
-  Writeln('Nota: Puerto por defecto es 1521 si se omite');
-  Writeln('      Para especificar owner/schema: usuario/password@owner');
-  Writeln('      Para TNS: //tnsname usuario/password');
+  Writeln(Format(TRes.UsageNotePort, [1521]));
+
+  // Notas específicas de Oracle
+  Writeln(TRes.UsageOracleOwner);
+  Writeln(TRes.UsageOracleTNS);
+
   Writeln('');
-  Writeln('Formatos de conexión:');
-  Writeln('  servidor:puerto/sid        Conexión directa (ej: localhost:1521/ORCL)');
-  Writeln('  //tnsname                  Usando TNS Names (ej: //PROD_DB)');
-  Writeln('  servidor/sid               Puerto por defecto 1521');
+  Writeln(TRes.HeaderConnFormats); // "Formatos de conexión:"
+  Writeln(TRes.FmtOracleDirect);
+  Writeln(TRes.FmtOracleTNS);
+  Writeln(TRes.FmtOracleDefPort);
+
   Writeln('');
-  Writeln('Opciones:');
-  Writeln('  --nodelete           No elimina tablas, columnas ni índices en destino');
-  Writeln('  --with-triggers      Incluye comparación de triggers');
-  Writeln('  --with-data          Copia todos los datos de origen a destino (INSERT)');
-  Writeln('  --with-data-diff     Sincroniza datos comparando por clave primaria');
-  Writeln('                       (INSERT nuevos, UPDATE modificados, DELETE si no --nodelete)');
-  Writeln('  --exclude-tables=T1,T2...  Excluye tablas específicas de la sincronización de datos');
-  Writeln('                             (Lista Negra: Sincroniza todo MENOS esto)');
-  Writeln('  --include-tables=T1,T2...  Solo sincroniza datos de estas tablas');
-  Writeln('                             (Lista Blanca: Solo sincroniza ESTO, ignora el resto)');
+  Writeln(TRes.OptionsHeader); // "Opciones:"
+  Writeln('  --nodelete           ' + TRes.OptNoDelete);
+  Writeln('  --with-triggers      ' + TRes.OptTriggers);
+  Writeln('  --with-data          ' + TRes.OptWithData);
+  Writeln('  --with-data-diff     ' + TRes.OptDataDiff);
+  Writeln('  --exclude-tables=T1,T2... ' + TRes.OptExclude);
+  Writeln('                            ' + TRes.OptExcludeDesc);
+  Writeln('  --include-tables=T1,T2...  '+ TRes.OptInclude);
+  Writeln('                             '+ TRes.OptIncludeDesc);
   Writeln('');
-  Writeln('Ejemplos:');
+  Writeln('');
+  Writeln(TRes.ExamplesHeader);
   Writeln('  DBComparerOracle localhost:1521/ORCL hr/password123 '+
           'localhost:1521/ORCLDEV hr/password456 --nodelete --with-triggers');
   Writeln('');
@@ -50,14 +55,13 @@ begin
   Writeln('');
   Writeln('  DBComparerOracle ... --with-data-diff --include-tables=CUSTOMERS,ORDERS');
   Writeln('');
-  Writeln('El resultado se imprime por la salida estándar. '+
-          'Para guardarlo en archivo:');
+  Writeln(TRes.FooterFile);
   Writeln('  DBComparerOracle ... > script.sql');
   Writeln('');
   Halt(1);
 end;
 
-function ParseOracleConnection(const ConnStr, UserPass: string; 
+function ParseOracleConnection(const ConnStr, UserPass: string;
   out Server, Port, SID, Username, Password, Owner: string): Boolean;
 var
   TempStr: string;
