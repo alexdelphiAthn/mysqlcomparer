@@ -88,6 +88,17 @@ type
     class var ExSQLStd: string;       // Ejemplo Estándar
     class var ExSQLWinAuth: string;   // Ejemplo Windows Auth
     class var ExSQLFilter: string;    // Ejemplo Include Tables
+
+    // Específicos InterBase / Firebird
+    class var UsageIBCmd: string;      // Comando de uso principal
+    class var MsgIBLocal: string;      // Nota base local
+    class var MsgIBEmbedded: string;   // Nota base embebida
+
+    // Ejemplos InterBase
+    class var ExIBFull: string;        // Ejemplo completo (localhost:3050)
+    class var ExIBServer: string;      // Ejemplo servidor sin puerto
+    class var ExIBEmbedded: string;    // Ejemplo embebido
+    class var ExIBFilter: string;      // Ejemplo filtro tablas
   end;
 
 implementation
@@ -186,14 +197,24 @@ begin
     // Ejemplos (Con nombres en español)
     TRes.ExSQLNamedInst := '  %s localhost\SQLEXPRESS\midb_prod sa\pass123 ' +
                            'localhost\SQLEXPRESS\midb_dev sa\pass456 --nodelete --with-triggers';
-
     TRes.ExSQLStd       := '  %s servidor1\midb usuario\pass ' +
                            'servidor2\midb usuario\pass --with-data-diff --nodelete';
-
     TRes.ExSQLWinAuth   := '  %s localhost\midb Windows\ ' +
                            'localhost\midb_test Windows\ --with-data-diff';
-
     TRes.ExSQLFilter    := '  %s ... --with-data-diff --include-tables=Clientes,Productos';
+    TRes.UsageIBCmd := '  %s servidor1:puerto1\database1.gdb usuario1\password1 '+
+                       'servidor2:puerto2\database2.gdb usuario2\password2 [opciones]';
+    TRes.MsgIBLocal    := '      Para base de datos local: localhost\C:\ruta\database.gdb';
+    TRes.MsgIBEmbedded := '      Para base de datos embebida: \C:\ruta\database.gdb (sin servidor)';
+
+    // Ejemplos
+    TRes.ExIBFull     := '  %s localhost:3050\C:\DB\prod.gdb SYSDBA\masterkey '+
+                         'localhost:3050\C:\DB\dev.gdb SYSDBA\masterkey --nodelete --with-triggers';
+    TRes.ExIBServer   := '  %s servidor1\C:\DB\midb.gdb usuario\pass '+
+                         'servidor2\C:\DB\midb.gdb usuario\pass --with-data-diff --nodelete';
+    TRes.ExIBEmbedded := '  %s \C:\DB\local.gdb SYSDBA\masterkey '+
+                         '\C:\DB\local_test.gdb SYSDBA\masterkey --with-data-diff';
+    TRes.ExIBFilter   := '  %s ... --with-data-diff --include-tables=CLIENTES,PRODUCTOS';
   end
   else
   begin
@@ -271,14 +292,29 @@ begin
     // Ejemplos (Con nombres en inglés para mayor coherencia)
     TRes.ExSQLNamedInst := '  %s localhost\SQLEXPRESS\midb_prod sa\pass123 ' +
                            'localhost\SQLEXPRESS\midb_dev sa\pass456 --nodelete --with-triggers';
-
     TRes.ExSQLStd       := '  %s server1\midb user\pass ' +
                            'server2\midb user\pass --with-data-diff --nodelete';
-
     TRes.ExSQLWinAuth   := '  %s localhost\midb Windows\ ' +
                            'localhost\midb_test Windows\ --with-data-diff';
-
     TRes.ExSQLFilter    := '  %s ... --with-data-diff --include-tables=Customers,Products';
+
+    TRes.UsageIBCmd := '  %s server1:port1\database1.gdb user1\password1 '+
+                       'server2:port2\database2.gdb user2\password2 [options]';
+
+    TRes.MsgIBLocal    := '      For local database: localhost\C:\path\database.gdb';
+    TRes.MsgIBEmbedded := '      For embedded database: \C:\path\database.gdb (no server)';
+
+    // Ejemplos (Standard paths and user names adapted)
+    TRes.ExIBFull     := '  %s localhost:3050\C:\DB\prod.gdb SYSDBA\masterkey '+
+                         'localhost:3050\C:\DB\dev.gdb SYSDBA\masterkey --nodelete --with-triggers';
+
+    TRes.ExIBServer   := '  %s server1\C:\DB\mydb.gdb user\pass '+
+                         'server2\C:\DB\mydb.gdb user\pass --with-data-diff --nodelete';
+
+    TRes.ExIBEmbedded := '  %s \C:\DB\local.gdb SYSDBA\masterkey '+
+                         '\C:\DB\local_test.gdb SYSDBA\masterkey --with-data-diff';
+
+    TRes.ExIBFilter   := '  %s ... --with-data-diff --include-tables=CUSTOMERS,PRODUCTS';
   end;
 end;
 
