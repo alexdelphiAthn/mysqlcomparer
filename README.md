@@ -97,13 +97,13 @@
 
 <div align="center">
 
-| Motor | Versión | Ejecutable | Características Especiales |
-|-------|---------|------------|---------------------------|
-| ![MySQL](https://img.shields.io/badge/MySQL-005C84?style=flat-square&logo=mysql&logoColor=white) | 5.7+ / MariaDB 10+ | `DBComparer.exe` | Full support |
+| Base de Datos | Versiones Soportadas | Ejecutable | Características / Notas |
+| :--- | :--- | :--- | :--- |
+| ![MySQL](https://img.shields.io/badge/MySQL-005C84?style=flat-square&logo=mysql&logoColor=white) | 5.7+ / MariaDB 10+ | `DBComparer.exe` | Soporte completo |
 | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white) | 9.6+ | `DBComparerPostGre.exe` | Soporte de esquemas |
-| ![Oracle](https://img.shields.io/badge/Oracle-F80000?style=flat-square&logo=oracle&logoColor=white) | 11g+ | `DBComparerOracle.exe` | TNS Names, Owners |
+| ![Oracle](https://img.shields.io/badge/Oracle-F80000?style=flat-square&logo=oracle&logoColor=white) | 11g+ | `DBComparerOracle.exe` | TNS Names, Propietarios |
 | ![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat-square&logo=microsoft-sql-server&logoColor=white) | 2012+ | `DBComparerSQLServer.exe` | Columnas Identity |
-| ![Firebird](https://img.shields.io/badge/Firebird-FF6600?style=flat-square&logo=firebird&logoColor=white) | 2.5+ / InterBase | `DBComparerInterbase.exe` | Generadores, Dialectos |
+| ![Firebird](https://img.shields.io/badge/Firebird-FF6600?style=flat-square&logo=firebird&logoColor=white) | 2.5+ / InterBase | `DBComparerInterbase.exe` | Generadores, Dialectos |, Dialectos
 
 </div>
 
